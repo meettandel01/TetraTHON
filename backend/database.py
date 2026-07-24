@@ -23,21 +23,86 @@ Base = declarative_base()
 
 # ----- ORM Models -----
 
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    role = Column(String(20), nullable=False) # student, teacher, parent, admin
+    name = Column(String(100), nullable=False)
+    pin_hash = Column(String(200), nullable=True) # Hashed PIN for local auth
+    email = Column(String(100), unique=True, index=True, nullable=True)
+    auth_provider = Column(String(20), default="local") # local, google, microsoft
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class Student(Base):
     __tablename__ = "students"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False)
-    grade = Column(String(10), default="9")
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    section = Column(String(10), nullable=True)
+    language = Column(String(20), default="English")
+    grade = Column(String(10), default="8")
     level = Column(String(20), nullable=True)  # Foundational / Grade-Level / Advanced
+    archetype = Column(String(50), nullable=True) # strong, foundImproving, etc.
+    xp = Column(Integer, default=0)
+    streak = Column(Integer, default=0)
+    streak_last_date = Column(DateTime, nullable=True)
     mastery_score = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    user = relationship("User")
     sessions = relationship("Session", back_populates="student", cascade="all, delete-orphan")
     doubts = relationship("Doubt", back_populates="student", cascade="all, delete-orphan")
     quiz_attempts = relationship("QuizAttempt", back_populates="student", cascade="all, delete-orphan")
 
+class Teacher(Base):
+    __tablename__ = "teachers"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    role_title = Column(String(100), nullable=True)
+    sections = Column(String(200), nullable=True) # JSON or comma-separated
+    subject = Column(String(50), default="Mathematics")
+    
+    user = relationship("User")
+
+class Parent(Base):
+    __tablename__ = "parents"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    child_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    relation = Column(String(50), nullable=True)
+    
+    user = relationship("User")
+    child = relationship("Student")
+
+class Admin(Base):
+    __tablename__ = "admins"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    role_title = Column(String(100), nullable=True)
+    
+    user = relationship("User")
+
+class LoginAttempt(Base):
+    __tablename__ = "login_attempts"
+    
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    attempt_count = Column(Integer, default=0)
+    locked_until = Column(DateTime, nullable=True)
+    last_attempt_at = Column(DateTime, default=datetime.utcnow)
+
+class GuardianConsent(Base):
+    __tablename__ = "guardian_consents"
+    
+    student_id = Column(Integer, ForeignKey("students.id"), primary_key=True)
+    parent_id = Column(Integer, ForeignKey("parents.id"), nullable=False)
+    consented = Column(Boolean, default=False)
+    consented_at = Column(DateTime, nullable=True)
 
 class Session(Base):
     __tablename__ = "sessions"
@@ -55,7 +120,6 @@ class Session(Base):
 
     student = relationship("Student", back_populates="sessions")
 
-
 class Doubt(Base):
     __tablename__ = "doubts"
 
@@ -71,17 +135,35 @@ class Doubt(Base):
 
     student = relationship("Student", back_populates="doubts")
 
+class Escalation(Base):
+    __tablename__ = "escalations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    concept_id = Column(String(50), nullable=True)
+    doubt_text = Column(Text, nullable=False)
+    status = Column(String(20), default="pending") # pending, claimed, resolved
+    auto_escalated = Column(Boolean, default=False)
+    ai_confidence = Column(Float, nullable=True)
+    claimed_by = Column(Integer, ForeignKey("teachers.id"), nullable=True)
+    response_text = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    student = relationship("Student")
+    teacher = relationship("Teacher")
 
 class Concept(Base):
     __tablename__ = "concepts"
 
     id = Column(Integer, primary_key=True, index=True)
+    concept_code = Column(String(50), unique=True, index=True, nullable=False) # e.g. c1, c2
     name = Column(String(200), unique=True, nullable=False)
+    short_name = Column(String(100), nullable=True)
     parent_concept = Column(String(200), nullable=True)
     subject = Column(String(100), default="Mathematics")
-    grade_range = Column(String(20), default="8-10")
+    grade_range = Column(String(20), default="8")
     description = Column(Text, nullable=True)
-
+    ncert_citation = Column(String(200), nullable=True)
 
 class StudentConceptMastery(Base):
     __tablename__ = "student_concept_mastery"
@@ -94,7 +176,8 @@ class StudentConceptMastery(Base):
     correct = Column(Integer, default=0)
     is_weak = Column(Boolean, default=False)
     last_attempted = Column(DateTime, default=datetime.utcnow)
-
+    
+    concept = relationship("Concept")
 
 class QuizAttempt(Base):
     __tablename__ = "quiz_attempts"
@@ -112,6 +195,50 @@ class QuizAttempt(Base):
 
     student = relationship("Student", back_populates="quiz_attempts")
 
+class Badge(Base):
+    __tablename__ = "badges"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, nullable=False) # e.g. b1, b2
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    icon = Column(String(50), nullable=True)
+    criteria_type = Column(String(50), nullable=True)
+    criteria_value = Column(Integer, nullable=True)
+
+class StudentBadge(Base):
+    __tablename__ = "student_badges"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    badge_id = Column(Integer, ForeignKey("badges.id"), nullable=False)
+    earned_at = Column(DateTime, default=datetime.utcnow)
+    
+    badge = relationship("Badge")
+
+class XpTransaction(Base):
+    __tablename__ = "xp_transactions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    amount = Column(Integer, nullable=False)
+    source = Column(String(50), nullable=False) # practice, diagnostic, lesson
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class ContentItem(Base):
+    __tablename__ = "content_items"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    concept_id = Column(Integer, ForeignKey("concepts.id"), nullable=False)
+    type = Column(String(50), nullable=False) # mcq, numerical, etc
+    text = Column(Text, nullable=False)
+    options = Column(Text, nullable=True) # JSON string
+    correct = Column(String(50), nullable=False)
+    hints = Column(Text, nullable=True) # JSON string
+    explanation = Column(Text, nullable=True)
+    citation = Column(String(200), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 # Dependency for FastAPI routes
 def get_db():

@@ -1,65 +1,99 @@
-import React from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { Toaster } from 'react-hot-toast'
-import { StudentProvider, useStudent } from './context/StudentContext'
-import Navbar from './components/Navbar'
-import LandingPage from './pages/LandingPage'
-import QuizPage from './pages/QuizPage'
-import ResultPage from './pages/ResultPage'
-import LessonPage from './pages/LessonPage'
-import DoubtPage from './pages/DoubtPage'
-import DashboardPage from './pages/DashboardPage'
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import AppShell from './components/AppShell';
 
-// Guard: redirect to landing if no student
-const ProtectedRoute = ({ children }) => {
-  const { student } = useStudent()
-  if (!student) return <Navigate to="/" replace />
-  return children
-}
+// Pages
+import LoginPage from './pages/LoginPage';
+// Student Pages
+import DashboardPage from './pages/DashboardPage';
+import QuizPage from './pages/QuizPage'; // DiagnosticPage
+import LearningPathPage from './pages/LearningPathPage';
+import LessonPage from './pages/LessonPage';
+import PracticePage from './pages/PracticePage';
+import DoubtPage from './pages/DoubtPage';
+import ResultPage from './pages/ResultPage'; // SessionSummary
+// Teacher Pages
+import TeacherDashboard from './pages/TeacherDashboard';
+import ParentOverview from './pages/ParentOverview';
+import AdminConsole from './pages/AdminConsole';
 
-function AppContent() {
-  return (
-    <BrowserRouter>
-      <a href="#main-content" className="skip-to-content">Skip to main content</a>
-      <div className="min-h-screen flex flex-col" style={{ background: 'var(--color-bg-primary)' }}>
-        <Navbar />
-        <main id="main-content" className="flex-1 flex flex-col">
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/quiz" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
-            <Route path="/result" element={<ProtectedRoute><ResultPage /></ProtectedRoute>} />
-            <Route path="/lesson" element={<ProtectedRoute><LessonPage /></ProtectedRoute>} />
-            <Route path="/doubt" element={<ProtectedRoute><DoubtPage /></ProtectedRoute>} />
-            <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
-      </div>
-
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: 'var(--color-bg-card)',
-            color: 'var(--color-text-primary)',
-            border: '1px solid var(--color-border)',
-            boxShadow: 'var(--shadow-card-hover)',
-            fontFamily: 'Plus Jakarta Sans, sans-serif',
-            fontSize: '0.875rem',
-            fontWeight: '600',
-          },
-          success: { iconTheme: { primary: '#0D9488', secondary: 'white' } },
-          error: { iconTheme: { primary: '#DC2626', secondary: 'white' } },
-        }}
-      />
-    </BrowserRouter>
-  )
-}
+// Basic protected route wrapper
+const ProtectedRoute = ({ children, allowedRoles }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) return <div className="flex h-screen items-center justify-center"><div className="spinner"></div></div>;
+  if (!user) return <Navigate to="/login" replace />;
+  if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to="/login" replace />;
+  
+  return children;
+};
 
 export default function App() {
   return (
-    <StudentProvider>
-      <AppContent />
-    </StudentProvider>
-  )
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          
+          <Route path="/" element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
+            {/* Redirect root based on role */}
+            <Route index element={<Navigate to="/student/dashboard" replace />} />
+            
+            {/* Student Routes */}
+            <Route path="student">
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="diagnostic" element={<QuizPage />} />
+              <Route path="learning-path" element={<LearningPathPage />} />
+              <Route path="lesson" element={<LessonPage />} />
+              <Route path="practice" element={<PracticePage />} />
+              <Route path="doubt" element={<DoubtPage />} />
+              <Route path="summary" element={<ResultPage />} />
+            </Route>
+            
+            {/* Teacher Routes */}
+            <Route path="teacher">
+              <Route path="dashboard" element={<TeacherDashboard />} />
+              <Route path="heatmap" element={<div className="p-8">Mastery Heatmap (WIP)</div>} />
+              <Route path="item-analysis" element={<div className="p-8">Item Analysis (WIP)</div>} />
+              <Route path="escalations" element={<div className="p-8">Escalations (WIP)</div>} />
+              <Route path="roster" element={<div className="p-8">Student Roster (WIP)</div>} />
+            </Route>
+
+            {/* Parent Routes */}
+            <Route path="parent">
+              <Route path="dashboard" element={<ParentOverview />} />
+            </Route>
+
+            {/* Admin Routes */}
+            <Route path="admin">
+              <Route path="content" element={<div className="p-8">Content Authoring (WIP)</div>} />
+              <Route path="compliance" element={<div className="p-8">Compliance (WIP)</div>} />
+            </Route>
+          </Route>
+          
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+
+        {/* Custom Toast configuration matching design system */}
+        <Toaster
+          position="bottom-center"
+          toastOptions={{
+            style: {
+              background: 'var(--ink)',
+              color: 'var(--card)',
+              borderRadius: '999px',
+              padding: '10px 20px',
+              fontSize: '13.5px',
+              fontWeight: '600',
+              fontFamily: 'Manrope, sans-serif'
+            },
+            success: { style: { background: 'var(--forest)' } },
+            error: { style: { background: 'var(--redpen)' } },
+          }}
+        />
+      </BrowserRouter>
+    </AuthProvider>
+  );
 }
