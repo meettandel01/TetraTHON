@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db, Student, StudentConceptMastery
+from auth import get_current_user, User
 
 router = APIRouter()
 
 @router.get("/{student_id}")
-def get_report_card(student_id: int, db: Session = Depends(get_db)):
+def get_report_card(student_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")

@@ -4,13 +4,14 @@ from sqlalchemy import func
 import logging
 
 from database import get_db, Student, Session as LearningSession, QuizAttempt, Doubt, StudentConceptMastery, Concept
+from auth import get_current_user, User
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 @router.get("/{student_id}")
-def get_dashboard(student_id: int, db: Session = Depends(get_db)):
+def get_dashboard(student_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Get full dashboard data for a student."""
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
