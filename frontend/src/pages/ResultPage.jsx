@@ -1,332 +1,193 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import {
-  CheckCircle, XCircle, ArrowRight, Trophy,
-  Star, BookOpen, Zap, AlertTriangle, TrendingUp, Brain,
-} from 'lucide-react'
-import { useStudent } from '../context/StudentContext'
 import confetti from 'canvas-confetti'
+import { BookOpen, Target, ArrowRight, TrendingUp, Sparkles, AlertTriangle, Zap, Play } from 'lucide-react'
+import { useStudent } from '../context/StudentContext'
 
-// ── Level configuration ────────────────────────────────────────────────────────
-const LEVEL_CONFIG = {
-  Foundational: {
-    emoji: '🌱',
-    color: '#6ee7b7',
-    gradient: 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
-    glowColor: 'rgba(16,185,129,0.25)',
-    borderColor: 'rgba(16,185,129,0.3)',
-    bgColor: 'rgba(16,185,129,0.07)',
-    title: "You're Building Your Foundation",
-    subtitle: "Every expert was once a beginner. Let's strengthen your basics!",
-    message:
-      "Great effort! You have some gaps to fill in the fundamentals. Our Foundational path will walk you through everything with clear, step-by-step explanations — no rushing, just solid learning.",
-    pathDesc: 'Core concept micro-lessons · Visual explanations · Step-by-step examples',
-    ctaLabel: 'Start Foundational Path',
-  },
-  'Grade-Level': {
-    emoji: '📚',
-    color: '#93c5fd',
-    gradient: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-    glowColor: 'rgba(59,130,246,0.25)',
-    borderColor: 'rgba(59,130,246,0.3)',
-    bgColor: 'rgba(59,130,246,0.07)',
-    title: "You're Right on Track!",
-    subtitle: "Solid understanding — time to master the tricky parts.",
-    message:
-      "You've got the basics down well. Our Grade-Level path will sharpen your problem-solving, tackle CBSE-standard questions, and help you ace your exams with confidence.",
-    pathDesc: 'CBSE-aligned problems · Application questions · Concept mastery',
-    ctaLabel: 'Start Grade-Level Path',
-  },
-  Advanced: {
-    emoji: '🚀',
-    color: '#fcd34d',
-    gradient: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
-    glowColor: 'rgba(245,158,11,0.25)',
-    borderColor: 'rgba(245,158,11,0.3)',
-    bgColor: 'rgba(245,158,11,0.07)',
-    title: "Outstanding Performance!",
-    subtitle: "You think like a mathematician. Let's go deeper!",
-    message:
-      "Impressive! You've demonstrated strong mathematical reasoning. Our Advanced path includes Olympiad-style problems, derivations, and real-world applications that go beyond the standard syllabus.",
-    pathDesc: 'Olympiad problems · Concept derivations · Advanced applications',
-    ctaLabel: 'Start Advanced Path',
-  },
-}
+// SVG Circular Progress Component
+const CircularProgress = ({ value, color, size = 120, strokeWidth = 10, label = "Score" }) => {
+  const radius = (size - strokeWidth) / 2
+  const circumference = radius * 2 * Math.PI
+  const offset = circumference - (value / 100) * circumference
 
-// ── Concept bar component ──────────────────────────────────────────────────────
-function ConceptBar({ concept, data, index, levelColor }) {
-  const pct = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0
-  const isWeak = pct < 50
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -16 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.6 + index * 0.08 }}
-      className="mb-4"
-    >
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-1.5">
-          {isWeak && <AlertTriangle size={13} className="text-amber-400" />}
-          <span className="text-sm font-medium text-slate-300">{concept}</span>
-          {isWeak && (
-            <span className="text-xs px-1.5 py-0.5 rounded text-amber-400"
-              style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)' }}>
-              Needs work
-            </span>
-          )}
-        </div>
-        <span className="text-sm font-bold" style={{ color: isWeak ? '#f59e0b' : '#6ee7b7' }}>
-          {data.correct}/{data.total}
-        </span>
-      </div>
-      <div className="progress-bar">
-        <motion.div
-          className="progress-fill"
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.8, delay: 0.7 + index * 0.1, ease: 'easeOut' }}
-          style={{
-            background: isWeak
-              ? 'linear-gradient(90deg, #f59e0b, #ef4444)'
-              : `linear-gradient(90deg, #10b981, ${levelColor})`,
-          }}
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }} role="progressbar" aria-valuenow={value} aria-valuemin="0" aria-valuemax="100">
+      {/* Background circle */}
+      <svg width={size} height={size} className="transform -rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="var(--color-bg-secondary)"
+          strokeWidth={strokeWidth}
+          fill="none"
         />
+        {/* Progress circle */}
+        <motion.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeLinecap="round"
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 1.5, ease: "easeOut" }}
+          style={{ strokeDasharray: circumference }}
+        />
+      </svg>
+      <div className="absolute flex flex-col items-center justify-center text-center">
+        <span className="text-2xl font-extrabold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
+          {value}%
+        </span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-secondary)]">{label}</span>
       </div>
-      <p className="text-xs text-slate-600 mt-1">{pct}% correct</p>
-    </motion.div>
+    </div>
   )
 }
 
 export default function ResultPage() {
   const { state } = useLocation()
-  const navigate  = useNavigate()
+  const navigate = useNavigate()
   const { student } = useStudent()
+  const [mounted, setMounted] = useState(false)
 
-  const level          = state?.level          || student?.level          || 'Grade-Level'
-  const mastery        = state?.mastery_score  || student?.mastery_score  || 60
-  const results        = state?.results        || []
-  const conceptScores  = state?.concept_scores || {}
-  const weakConcepts   = state?.weak_concepts  || []
-  const breakdown      = state?.breakdown      || {}
-  const cfg            = LEVEL_CONFIG[level] || LEVEL_CONFIG['Grade-Level']
-
-  const totalCorrect  = results.filter(r => r.is_correct).length
-  const totalAnswered = results.length
-
-  // Confetti for advanced ────────────────────────────────────────────────────
+  // Redirect if accessed directly without state
   useEffect(() => {
-    console.log('[Result] Level:', level, '| Score:', mastery, '| Weak:', weakConcepts)
-    if (level === 'Advanced') {
-      setTimeout(() => {
-        confetti({ particleCount: 120, spread: 80, origin: { y: 0.55 }, colors: ['#fcd34d', '#f59e0b', '#ef4444'] })
-        setTimeout(() => confetti({ particleCount: 60, spread: 60, origin: { x: 0.1, y: 0.6 } }), 400)
-        setTimeout(() => confetti({ particleCount: 60, spread: 60, origin: { x: 0.9, y: 0.6 } }), 700)
-      }, 400)
+    if (!state?.level) {
+      navigate('/quiz')
+    } else {
+      setMounted(true)
+      // Confetti effect based on level
+      if (state.level === 'Advanced') {
+        confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#D97706', '#F59E0B'] })
+      } else {
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#0D9488', '#14B8A6'] })
+      }
     }
-  }, [])
+  }, [state, navigate])
+
+  if (!mounted || !state) return null
+
+  const { level, mastery_score, results = [], weak_concepts = [] } = state
+  
+  // Calculate breakdown stats
+  const total = results.length || 5
+  const correctCount = results.filter(r => r.is_correct).length
+  const accuracy = Math.round((correctCount / total) * 100) || mastery_score
+
+  const levelDetails = {
+    Foundational: { color: 'var(--color-success)', bg: 'var(--color-success-light)', icon: Target, msg: "Let's build a rock-solid foundation." },
+    'Grade-Level': { color: 'var(--color-info)', bg: 'var(--color-info-light)', icon: BookOpen, msg: "You're right on track! Let's solidify those concepts." },
+    Advanced: { color: 'var(--color-warning)', bg: 'var(--color-warning-light)', icon: Sparkles, msg: "Outstanding! Let's tackle some challenging problems." },
+  }
+  const detail = levelDetails[level] || levelDetails['Grade-Level']
+  const LevelIcon = detail.icon
 
   return (
-    <div className="min-h-screen bg-grid py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-
-        {/* ── Hero Banner ─────────────────────────────────────────────────── */}
+    <section aria-labelledby="result-heading" className="min-h-[calc(100vh-80px)] bg-[var(--color-bg-primary)] py-12 px-6">
+      <div className="max-w-4xl mx-auto space-y-8">
+        
+        {/* ── Main Results Card ─────────────────────────────────────────── */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.94 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className="rounded-2xl p-7 text-center mb-5"
-          style={{
-            background: cfg.bgColor,
-            border: `1px solid ${cfg.borderColor}`,
-            boxShadow: `0 0 60px ${cfg.glowColor}`,
-          }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="card text-center p-10 md:p-14 relative overflow-hidden"
         >
-          {/* Emoji */}
-          <motion.div
-            initial={{ scale: 0, rotate: -20 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: 'spring', delay: 0.2, stiffness: 200 }}
-            className="text-6xl mb-4 inline-block animate-float"
-          >
-            {cfg.emoji}
-          </motion.div>
+          {/* Subtle background decoration */}
+          <div className="absolute -top-24 -right-24 w-64 h-64 rounded-full opacity-30 blur-3xl pointer-events-none" style={{ background: detail.bg }} aria-hidden="true" />
+          
+          <div className="relative z-10 flex flex-col items-center">
+            <div 
+              className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6 shadow-sm border"
+              style={{ background: detail.bg, borderColor: `rgba(0,0,0,0.05)`, color: detail.color }}
+            >
+              <LevelIcon size={40} aria-hidden="true" />
+            </div>
 
-          {/* Level badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold mb-3"
-            style={{ background: `${cfg.color}20`, border: `1px solid ${cfg.color}40`, color: cfg.color }}
-          >
-            <Trophy size={14} />
-            {level} Level
-          </motion.div>
+            <h1 id="result-heading" className="text-4xl md:text-5xl font-extrabold text-[var(--color-text-primary)] mb-4 tracking-tight">
+              You're in the <span style={{ color: detail.color }}>{level}</span> track
+            </h1>
+            <p className="text-lg md:text-xl text-[var(--color-text-secondary)] font-medium mb-10 max-w-xl mx-auto">
+              {detail.msg} We've crafted a custom learning path to help you master Math at your perfect pace.
+            </p>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="text-3xl font-black mb-2"
-            style={{ color: cfg.color }}
-          >
-            {cfg.title}
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-slate-400 text-sm mb-6 max-w-sm mx-auto leading-relaxed"
-          >
-            {cfg.message}
-          </motion.p>
-
-          {/* Score row */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.55 }}
-            className="flex justify-center gap-8 pt-5"
-            style={{ borderTop: `1px solid ${cfg.borderColor}` }}
-          >
-            {[
-              { label: 'Correct', value: `${totalCorrect}/${totalAnswered}`, icon: CheckCircle },
-              { label: 'Mastery', value: `${mastery}%`, icon: TrendingUp },
-              { label: 'Weak Areas', value: weakConcepts.length, icon: AlertTriangle },
-            ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="text-center">
-                <p className="text-2xl font-black" style={{ color: cfg.color }}>{value}</p>
-                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1 justify-center">
-                  <Icon size={11} /> {label}
-                </p>
-              </div>
-            ))}
-          </motion.div>
+            <div className="flex flex-wrap justify-center gap-10 md:gap-16">
+              <CircularProgress value={mastery_score} color="var(--color-accent-primary)" label="Mastery" size={140} strokeWidth={12} />
+              <CircularProgress value={accuracy} color={detail.color} label="Accuracy" size={140} strokeWidth={12} />
+            </div>
+          </div>
         </motion.div>
 
-        {/* ── Difficulty Breakdown ─────────────────────────────────────────── */}
-        {Object.keys(breakdown).length > 0 && (
+        {/* ── Action & Analysis Grid ─────────────────────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          
+          {/* Action Card */}
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45 }}
-            className="rounded-2xl p-5 mb-5"
-            style={{ background: 'rgba(14,20,36,0.9)', border: '1px solid rgba(255,255,255,0.08)' }}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="card p-8 flex flex-col justify-between"
           >
-            <h3 className="font-bold mb-4 flex items-center gap-2 text-sm">
-              <Star size={16} className="text-yellow-400" />
-              Performance by Difficulty
-            </h3>
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { key: 'easy',   label: 'Easy',   color: '#6ee7b7', icon: '🌱' },
-                { key: 'medium', label: 'Medium', color: '#93c5fd', icon: '📚' },
-                { key: 'hard',   label: 'Hard',   color: '#fcd34d', icon: '🚀' },
-              ].map(({ key, label, color, icon }) => {
-                const raw = breakdown[key] || '0/0'
-                const [c, t] = raw.split('/').map(Number)
-                const pct = t > 0 ? Math.round((c / t) * 100) : 0
-                return (
-                  <motion.div
-                    key={key}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.5 + ['easy','medium','hard'].indexOf(key) * 0.08 }}
-                    className="rounded-xl p-3 text-center"
-                    style={{ background: `${color}10`, border: `1px solid ${color}25` }}
-                  >
-                    <div className="text-lg mb-1">{icon}</div>
-                    <p className="text-lg font-black" style={{ color }}>{c}/{t}</p>
-                    <p className="text-xs text-slate-500">{label}</p>
-                    <div className="progress-bar mt-2">
-                      <motion.div
-                        className="progress-fill"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${pct}%` }}
-                        transition={{ duration: 0.7, delay: 0.7 }}
-                        style={{ background: color }}
-                      />
-                    </div>
-                  </motion.div>
-                )
-              })}
+            <div>
+              <div className="w-12 h-12 rounded-xl bg-[var(--color-info-light)] flex items-center justify-center mb-6 border border-[rgba(37,99,235,0.2)]">
+                <TrendingUp size={24} className="text-[var(--color-info)]" aria-hidden="true" />
+              </div>
+              <h2 className="text-2xl font-extrabold text-[var(--color-text-primary)] mb-3 tracking-tight">Your Next Step</h2>
+              <p className="text-[var(--color-text-secondary)] mb-8 font-medium leading-relaxed">
+                Based on your results, we've unlocked a personalized 10-minute micro-lesson focusing exactly on what you need to learn next.
+              </p>
             </div>
+            <button
+              onClick={() => navigate('/lesson')}
+              className="btn-primary w-full justify-center py-4 text-lg shadow-lg hover:shadow-xl group"
+            >
+              <Play size={20} className="mr-2 fill-current" aria-hidden="true" />
+              Start First Lesson
+              <ArrowRight size={20} className="ml-2 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
+            </button>
           </motion.div>
-        )}
 
-        {/* ── Concept-wise breakdown ───────────────────────────────────────── */}
-        {Object.keys(conceptScores).length > 0 && (
+          {/* Weak Concepts Card */}
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="rounded-2xl p-5 mb-5"
-            style={{ background: 'rgba(14,20,36,0.9)', border: '1px solid rgba(255,255,255,0.08)' }}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="card p-8"
           >
-            <h3 className="font-bold mb-4 flex items-center gap-2 text-sm">
-              <Brain size={16} className="text-purple-400" />
-              Concept Breakdown
-            </h3>
-            {Object.entries(conceptScores).map(([concept, data], i) => (
-              <ConceptBar key={concept} concept={concept} data={data} index={i} levelColor={cfg.color} />
-            ))}
-
-            {weakConcepts.length > 0 && (
-              <div className="mt-4 p-3 rounded-xl flex items-start gap-2"
-                style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)' }}>
-                <AlertTriangle size={15} className="text-amber-400 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-slate-400">
-                  <span className="text-amber-400 font-semibold">Weak areas detected: </span>
-                  {weakConcepts.join(', ')} — your personalised lesson will address these first.
-                </p>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-[var(--color-warning-light)] flex items-center justify-center border border-[rgba(217,119,6,0.2)]">
+                <AlertTriangle size={20} className="text-[var(--color-warning)]" aria-hidden="true" />
+              </div>
+              <h2 className="text-xl font-extrabold text-[var(--color-text-primary)] tracking-tight">Concepts to Review</h2>
+            </div>
+            
+            {weak_concepts && weak_concepts.length > 0 ? (
+              <ul className="space-y-4 m-0 p-0 list-none" aria-label="List of concepts to review">
+                {weak_concepts.map((concept, idx) => (
+                  <li key={idx} className="flex items-start gap-4 p-4 rounded-xl bg-[var(--color-bg-secondary)] border border-[var(--color-border)]">
+                    <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center flex-shrink-0 text-sm font-bold text-[var(--color-text-muted)]">
+                      {idx + 1}
+                    </div>
+                    <div>
+                      <p className="font-bold text-[var(--color-text-primary)]">{concept}</p>
+                      <p className="text-sm text-[var(--color-text-secondary)] font-medium mt-1">We'll focus on this in your upcoming lessons.</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="text-center p-8 bg-[var(--color-success-light)] rounded-xl border border-[rgba(13,148,136,0.2)]">
+                <Zap size={32} className="text-[var(--color-success)] mx-auto mb-3" aria-hidden="true" />
+                <p className="text-[var(--color-success)] font-bold">Perfect score! You're ready for advanced challenges.</p>
               </div>
             )}
           </motion.div>
-        )}
-
-        {/* ── Your Path Card ───────────────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.65 }}
-          className="rounded-2xl p-5 mb-5"
-          style={{ background: cfg.bgColor, border: `1px solid ${cfg.borderColor}` }}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <BookOpen size={16} style={{ color: cfg.color }} />
-            <h3 className="font-bold text-sm">Your Personalised Learning Path</h3>
-          </div>
-          <p className="text-xs text-slate-400 leading-relaxed mb-2">{cfg.pathDesc}</p>
-          <p className="text-xs text-slate-500 italic">{cfg.subtitle}</p>
-        </motion.div>
-
-        {/* ── CTAs ─────────────────────────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.75 }}
-          className="flex flex-col gap-3"
-        >
-          <button
-            onClick={() => navigate('/lesson')}
-            className="btn-primary w-full justify-center text-base py-4"
-            style={{ background: cfg.gradient }}
-          >
-            <Zap size={18} />
-            {cfg.ctaLabel}
-            <ArrowRight size={18} />
-          </button>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="btn-secondary w-full justify-center text-sm py-3"
-          >
-            <TrendingUp size={15} /> View Full Dashboard
-          </button>
-        </motion.div>
-
+        </div>
+        
       </div>
-    </div>
+    </section>
   )
 }

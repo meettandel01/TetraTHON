@@ -17,3 +17,7 @@ venv/
 # IDE
 .vscode/
 .idea/
+
+
+# Demo files
+sahaay_demo_fixed.html

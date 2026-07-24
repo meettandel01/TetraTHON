@@ -5,7 +5,8 @@ from typing import List, Optional
 import logging
 import random
 
-from database import get_db, Student, QuizAttempt
+from database import get_db, Student, QuizAttempt, StudentConceptMastery
+from routers.concepts import get_concept_id_by_name
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -352,6 +353,35 @@ def submit_quiz(request: QuizSubmitRequest, db: Session = Depends(get_db)):
     # Update student record
     student.level = level
     student.mastery_score = mastery_score
+    
+    # Update StudentConceptMastery for all concepts attempted
+    for concept_name, scores in concept_scores.items():
+        concept_id = get_concept_id_by_name(db, concept_name)
+        if not concept_id:
+            continue
+            
+        mastery_record = db.query(StudentConceptMastery).filter(
+            StudentConceptMastery.student_id == student.id,
+            StudentConceptMastery.concept_id == concept_id
+        ).first()
+        
+        is_weak = (scores["correct"] / scores["total"]) < 0.5 if scores["total"] > 0 else False
+        
+        if mastery_record:
+            mastery_record.attempts += scores["total"]
+            mastery_record.correct += scores["correct"]
+            mastery_record.is_weak = is_weak
+            mastery_record.mastery_level = (mastery_record.correct / mastery_record.attempts) if mastery_record.attempts > 0 else 0
+        else:
+            db.add(StudentConceptMastery(
+                student_id=student.id,
+                concept_id=concept_id,
+                attempts=scores["total"],
+                correct=scores["correct"],
+                is_weak=is_weak,
+                mastery_level=(scores["correct"] / scores["total"]) if scores["total"] > 0 else 0
+            ))
+            
     db.commit()
 
     logger.info(f"✅ Student {request.student_id} → {level} | Score: {mastery_score}% | Weak: {weak_concepts}")

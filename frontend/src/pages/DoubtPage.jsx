@@ -1,303 +1,274 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Send, ImagePlus, X, Loader, Brain, Lightbulb, BookOpen, ChevronDown } from 'lucide-react'
-import { doubtsApi } from '../services/api'
-import { useStudent } from '../context/StudentContext'
-import toast from 'react-hot-toast'
+import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
-import remarkGfm from 'remark-gfm'
-import 'katex/dist/katex.min.css'
-
-const modeConfig = {
-  direct: {
-    label: 'Direct Answer',
-    icon: BookOpen,
-    description: 'Get a full step-by-step solution',
-    color: '#3b82f6',
-    bg: 'rgba(59,130,246,0.15)',
-    border: 'rgba(59,130,246,0.4)',
-  },
-  socratic: {
-    label: 'Socratic Mode',
-    icon: Brain,
-    description: 'Get guided hints to find the answer yourself',
-    color: '#8b5cf6',
-    bg: 'rgba(139,92,246,0.15)',
-    border: 'rgba(139,92,246,0.4)',
-  },
-}
+import { Send, Image as ImageIcon, Camera, X, Loader, Bot, User, Sparkles } from 'lucide-react'
+import { useStudent } from '../context/StudentContext'
+import { doubtApi } from '../services/api'
+import toast from 'react-hot-toast'
 
 export default function DoubtPage() {
-  const [messages, setMessages] = useState([])
+  const { student } = useStudent()
+  
+  const [messages, setMessages] = useState([
+    {
+      id: 'welcome',
+      role: 'assistant',
+      content: `Hello ${student?.name || ''}! I'm your AI tutor. Ask me any math question, upload a photo of a problem, or ask for a hint.`
+    }
+  ])
   const [input, setInput] = useState('')
-  const [mode, setMode] = useState('direct')
   const [image, setImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [showModeInfo, setShowModeInfo] = useState(false)
-  const fileRef = useRef(null)
-  const bottomRef = useRef(null)
-  const { student } = useStudent()
+  const [mode, setMode] = useState('socratic') // 'socratic' or 'direct'
+  
+  const messagesEndRef = useRef(null)
+  const fileInputRef = useRef(null)
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  // Add welcome message on mount
-  useEffect(() => {
-    setMessages([{
-      role: 'system',
-      content: `👋 Hi ${student?.name || 'there'}! I'm your AI Math Tutor.\n\nYou can:\n- **Type** any Math question\n- **Upload a photo** of your notebook\n\nChoose **Direct Mode** for step-by-step solutions or **Socratic Mode** to learn by guided hints!`,
-    }])
-  }, [])
+    scrollToBottom()
+  }, [messages, loading])
 
   const handleImageSelect = (e) => {
     const file = e.target.files[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file')
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image too large. Max 5MB.')
       return
     }
+
     setImage(file)
-    setImagePreview(URL.createObjectURL(file))
-    console.log('[Doubt] Image selected:', file.name, file.size)
+    const reader = new FileReader()
+    reader.onloadend = () => setImagePreview(reader.result)
+    reader.readAsDataURL(file)
   }
 
-  const handleSend = async () => {
-    if ((!input.trim() && !image) || loading) return
-
-    const userMsg = {
-      role: 'user',
-      content: input || 'Please solve the math problem in the image.',
-      image: imagePreview,
-    }
-
-    setMessages((m) => [...m, userMsg])
-    const sentInput = input
-    const sentImage = image
-    setInput('')
+  const clearImage = () => {
     setImage(null)
     setImagePreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleSend = async (e) => {
+    e?.preventDefault()
+    if (!input.trim() && !image) return
+
+    const userMsg = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input.trim() || 'Uploaded an image',
+      image: imagePreview
+    }
+    
+    setMessages(prev => [...prev, userMsg])
+    setInput('')
     setLoading(true)
+    
+    // Clear image immediately from input area
+    const currentImage = image
+    clearImage()
 
     try {
-      console.log(`[Doubt] Sending to API — mode: ${mode}, has_image: ${!!sentImage}`)
-      const res = await doubtsApi.ask(student?.id || 1, sentInput, mode, sentImage)
-      const aiMsg = { role: 'ai', content: res.data.response, mode }
-      setMessages((m) => [...m, aiMsg])
-      console.log('[Doubt] AI response received')
+      const res = await doubtApi.askDoubt(
+        student.id,
+        userMsg.content,
+        currentImage,
+        null,
+        mode
+      )
+
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: res.data.answer
+      }])
+
     } catch (err) {
-      toast.error('Failed to get response: ' + err.message)
-      setMessages((m) => [...m, {
-        role: 'ai',
-        content: '⚠️ Could not connect to the AI server. Please check if the backend is running.',
-        mode,
+      console.error('[Doubt] API Error:', err)
+      toast.error('Failed to get answer. Please try again.')
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Sorry, I am having trouble connecting right now. Please check your network and try again.'
       }])
     } finally {
       setLoading(false)
     }
   }
 
-  const mc = modeConfig[mode]
-
   return (
-    <div className="min-h-screen flex flex-col bg-grid">
-      {/* Header */}
-      <div className="px-4 py-4 flex items-center justify-between"
-        style={{ background: 'rgba(10,14,26,0.9)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-            <Lightbulb size={18} className="text-white" />
-          </div>
+    <div className="h-[calc(100vh-80px)] bg-[var(--color-bg-primary)] flex flex-col items-center">
+      <div className="w-full max-w-4xl h-full flex flex-col">
+        
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <div className="px-6 py-6 border-b border-[var(--color-border)] bg-[var(--color-bg-primary)] z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="font-bold">AI Doubt Resolver</h1>
-            <p className="text-xs text-slate-500">Type or upload a photo of your problem</p>
+            <h1 className="text-3xl font-extrabold text-[var(--color-text-primary)] tracking-tight flex items-center gap-2">
+              <Sparkles size={28} className="text-[var(--color-accent-primary)]" aria-hidden="true" />
+              AI Doubt Resolver
+            </h1>
+            <p className="text-sm text-[var(--color-text-secondary)] font-medium mt-1">
+              Ask questions or take a photo of your math problem.
+            </p>
+          </div>
+
+          <div className="flex items-center bg-[var(--color-bg-secondary)] p-1.5 rounded-xl border border-[var(--color-border)]" role="radiogroup" aria-label="Tutor Mode">
+            <button
+              role="radio"
+              aria-checked={mode === 'socratic'}
+              onClick={() => setMode('socratic')}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                mode === 'socratic' 
+                  ? 'bg-white text-[var(--color-accent-primary)] shadow-sm' 
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              Guide Me (Hint)
+            </button>
+            <button
+              role="radio"
+              aria-checked={mode === 'direct'}
+              onClick={() => setMode('direct')}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                mode === 'direct' 
+                  ? 'bg-white text-[var(--color-accent-primary)] shadow-sm' 
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              Direct Answer
+            </button>
           </div>
         </div>
 
-        {/* Mode Toggle */}
-        <div className="relative">
-          <button
-            onClick={() => setShowModeInfo(!showModeInfo)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all"
-            style={{ background: mc.bg, border: `1px solid ${mc.border}`, color: mc.color }}
-          >
-            <mc.icon size={15} />
-            {mc.label}
-            <ChevronDown size={13} style={{ transform: showModeInfo ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-          </button>
-
-          <AnimatePresence>
-            {showModeInfo && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                className="absolute right-0 top-12 z-30 w-64 rounded-xl overflow-hidden"
-                style={{ background: 'rgba(15,22,41,0.98)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}
-              >
-                {Object.entries(modeConfig).map(([key, cfg]) => (
-                  <button
-                    key={key}
-                    onClick={() => { setMode(key); setShowModeInfo(false) }}
-                    className="w-full text-left px-4 py-3 flex items-start gap-3 transition-all hover:bg-white/5"
-                  >
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center mt-0.5 flex-shrink-0"
-                      style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}>
-                      <cfg.icon size={15} style={{ color: cfg.color }} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold" style={{ color: mode === key ? cfg.color : 'white' }}>{cfg.label}</p>
-                      <p className="text-xs text-slate-400">{cfg.description}</p>
-                    </div>
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 max-w-3xl mx-auto w-full">
-        <AnimatePresence initial={false}>
-          {messages.map((msg, i) => (
+        {/* ── Chat Messages ───────────────────────────────────────────────── */}
+        <div 
+          className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8"
+          role="log"
+          aria-live="polite"
+          aria-label="Chat history"
+        >
+          {messages.map((msg) => (
             <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 12 }}
+              key={msg.id}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`flex gap-4 max-w-[85%] ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}
             >
-              {msg.role !== 'user' && (
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0 mr-3 mt-1">
-                  {msg.role === 'system' ? <Lightbulb size={14} className="text-white" /> : <Brain size={14} className="text-white" />}
-                </div>
-              )}
+              {/* Avatar */}
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm border ${
+                msg.role === 'user' 
+                  ? 'bg-[var(--color-warning-light)] text-[var(--color-accent-primary)] border-[rgba(217,119,6,0.2)]'
+                  : 'bg-[var(--color-info-light)] text-[var(--color-info)] border-[rgba(37,99,235,0.2)]'
+              }`}>
+                {msg.role === 'user' ? <User size={20} aria-label="User" /> : <Bot size={20} aria-label="AI Tutor" />}
+              </div>
 
-              <div className="max-w-[80%]">
-                {msg.role === 'user' && msg.image && (
-                  <div className="mb-2 flex justify-end">
-                    <img src={msg.image} alt="uploaded" className="max-w-[200px] rounded-xl border border-white/10" />
-                  </div>
+              {/* Message Bubble */}
+              <div className={`p-5 rounded-2xl ${
+                msg.role === 'user'
+                  ? 'bg-[var(--color-accent-primary)] text-white shadow-md rounded-tr-sm'
+                  : 'bg-white text-[var(--color-text-primary)] border border-[var(--color-border)] shadow-sm rounded-tl-sm'
+              }`}>
+                {msg.image && (
+                  <img src={msg.image} alt="Uploaded math problem" className="max-w-full rounded-xl mb-3 border border-[rgba(0,0,0,0.1)]" />
                 )}
-                <div
-                  className="px-4 py-3 rounded-2xl text-sm leading-relaxed"
-                  style={{
-                    background: msg.role === 'user'
-                      ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)'
-                      : msg.role === 'system'
-                      ? 'rgba(255,255,255,0.04)'
-                      : 'rgba(20,28,46,1)',
-                    border: msg.role !== 'user' ? '1px solid rgba(255,255,255,0.08)' : 'none',
-                    color: msg.role === 'user' ? 'white' : '#e2e8f0',
-                    borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                  }}
-                >
-                  {msg.role === 'ai' && msg.mode && (
-                    <div className="flex items-center gap-1.5 mb-2 pb-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                      {React.createElement(modeConfig[msg.mode].icon, { size: 12, style: { color: modeConfig[msg.mode].color } })}
-                      <span className="text-xs font-medium" style={{ color: modeConfig[msg.mode].color }}>
-                        {modeConfig[msg.mode].label}
-                      </span>
-                    </div>
-                  )}
-                  <div className="lesson-content">
-                    <ReactMarkdown 
-                      remarkPlugins={[remarkGfm, remarkMath]}
-                      rehypePlugins={[rehypeKatex]}
-                    >
-                      {msg.content}
-                    </ReactMarkdown>
-                  </div>
-                </div>
+                {msg.role === 'user' ? (
+                  <p className="text-[15px] font-medium leading-relaxed">{msg.content}</p>
+                ) : (
+                  <article className="lesson-content prose prose-sm max-w-none text-[15px] leading-relaxed">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </article>
+                )}
               </div>
             </motion.div>
           ))}
-        </AnimatePresence>
 
-        {loading && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
-              <Brain size={14} className="text-white animate-pulse" />
-            </div>
-            <div className="px-4 py-3 rounded-2xl text-sm" style={{ background: 'rgba(20,28,46,1)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div className="flex gap-1">
-                {[0, 1, 2].map((i) => (
-                  <div key={i} className="w-2 h-2 rounded-full bg-blue-400"
-                    style={{ animation: `bounce 1s ease-in-out ${i * 0.15}s infinite` }} />
-                ))}
+          {loading && (
+            <div className="flex gap-4 max-w-[85%]">
+              <div className="w-10 h-10 rounded-xl bg-[var(--color-info-light)] text-[var(--color-info)] border border-[rgba(37,99,235,0.2)] flex items-center justify-center flex-shrink-0 shadow-sm">
+                <Bot size={20} aria-hidden="true" />
+              </div>
+              <div className="p-5 rounded-2xl bg-white border border-[var(--color-border)] shadow-sm rounded-tl-sm flex items-center gap-2">
+                <Loader size={18} className="animate-spin text-[var(--color-accent-primary)]" aria-label="Typing" />
+                <span className="text-sm font-medium text-[var(--color-text-secondary)]">Tutor is thinking...</span>
               </div>
             </div>
-          </motion.div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input Area */}
-      <div className="px-4 py-4" style={{ background: 'rgba(10,14,26,0.9)', backdropFilter: 'blur(20px)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        {/* Image preview */}
-        <AnimatePresence>
-          {imagePreview && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-3">
-              <div className="relative inline-block">
-                <img src={imagePreview} alt="preview" className="h-20 rounded-xl object-cover border border-white/10" />
-                <button
-                  onClick={() => { setImage(null); setImagePreview(null) }}
-                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center"
-                >
-                  <X size={12} className="text-white" />
-                </button>
-              </div>
-            </motion.div>
           )}
-        </AnimatePresence>
-
-        <div className="max-w-3xl mx-auto flex items-end gap-3">
-          <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleImageSelect} />
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="w-11 h-11 rounded-xl flex items-center justify-center transition-all flex-shrink-0"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
-            title="Upload photo of your question"
-          >
-            <ImagePlus size={18} className="text-slate-400" />
-          </button>
-
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-            placeholder="Type your Math doubt here... (or upload a photo)"
-            rows={1}
-            className="input-field flex-1 resize-none"
-            style={{ minHeight: '44px', maxHeight: '120px' }}
-          />
-
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleSend}
-            disabled={loading || (!input.trim() && !image)}
-            className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all"
-            style={{
-              background: (input.trim() || image) && !loading ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.1)',
-            }}
-          >
-            {loading ? <Loader size={16} className="text-white animate-spin" /> : <Send size={16} className="text-white" />}
-          </motion.button>
+          <div ref={messagesEndRef} />
         </div>
-      </div>
 
-      <style>{`
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
-        }
-      `}</style>
+        {/* ── Input Area ──────────────────────────────────────────────────── */}
+        <div className="p-6 bg-white border-t border-[var(--color-border)]">
+          {imagePreview && (
+            <div className="mb-4 relative inline-block">
+              <img src={imagePreview} alt="Preview" className="h-24 rounded-lg border border-[var(--color-border)] shadow-sm" />
+              <button
+                onClick={clearImage}
+                className="absolute -top-2 -right-2 w-7 h-7 bg-[var(--color-error)] text-white rounded-full flex items-center justify-center hover:bg-red-700 transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-error)]"
+                aria-label="Remove image"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
+          <form onSubmit={handleSend} className="flex items-end gap-3">
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleImageSelect}
+              aria-label="Upload an image"
+            />
+            
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-4 rounded-xl bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border)] transition-colors border border-[var(--color-border)] flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)]"
+              aria-label="Upload photo"
+              title="Upload photo"
+            >
+              <Camera size={24} />
+            </button>
+
+            <div className="flex-1 relative">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSend()
+                  }
+                }}
+                placeholder="Ask a question (e.g. How do I solve for x in 2x + 5 = 15?)"
+                className="input-field w-full py-4 pl-4 pr-14 resize-none h-[56px] min-h-[56px] max-h-[120px] overflow-y-auto leading-relaxed shadow-inner"
+                rows="1"
+                aria-label="Type your doubt"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || (!input.trim() && !image)}
+              className="p-4 rounded-xl bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-accent-primary)]"
+              aria-label="Send message"
+            >
+              <Send size={24} className={input.trim() || image ? 'translate-x-0.5 -translate-y-0.5 transition-transform' : ''} />
+            </button>
+          </form>
+          <p className="text-xs text-[var(--color-text-muted)] text-center mt-3 font-medium">
+            AI can make mistakes. Consider verifying important information.
+          </p>
+        </div>
+
+      </div>
     </div>
   )
 }

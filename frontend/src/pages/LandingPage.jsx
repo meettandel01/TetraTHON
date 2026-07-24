@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { BookOpen, Brain, Zap, ArrowRight, Sparkles, Target, TrendingUp, CheckCircle } from 'lucide-react'
+import { BookOpen, Brain, Zap, ArrowRight, Sparkles, Target, TrendingUp, CheckCircle, Sprout, Rocket } from 'lucide-react'
 import { studentApi } from '../services/api'
 import { useStudent } from '../context/StudentContext'
 import toast from 'react-hot-toast'
@@ -10,34 +10,36 @@ const features = [
   {
     icon: Target,
     title: 'Smart Diagnosis',
-    desc: '5-question adaptive quiz that pinpoints your exact learning level instantly',
-    gradient: 'from-blue-500 to-cyan-500',
+    desc: 'Adaptive quiz pinpoints your exact level instantly.',
+    color: 'var(--color-warning)',
+    bg: 'var(--color-warning-light)',
   },
   {
     icon: Brain,
     title: 'AI Doubt Resolver',
-    desc: 'Ask doubts via text or photo — get Socratic or direct AI explanations',
-    gradient: 'from-purple-500 to-pink-500',
+    desc: 'Socratic or direct explanations via text or photo.',
+    color: 'var(--color-info)',
+    bg: 'var(--color-info-light)',
   },
   {
     icon: TrendingUp,
     title: 'Personalized Lessons',
-    desc: '10-minute micro-lessons crafted for your specific learning level',
-    gradient: 'from-emerald-500 to-teal-500',
+    desc: 'Micro-lessons crafted for your specific learning level.',
+    color: 'var(--color-success)',
+    bg: 'var(--color-success-light)',
   },
 ]
 
 const levelInfo = [
-  { label: 'Foundational', color: '#6ee7b7', emoji: '🌱' },
-  { label: 'Grade-Level', color: '#93c5fd', emoji: '📚' },
-  { label: 'Advanced', color: '#fcd34d', emoji: '🚀' },
+  { label: 'Foundational', color: 'var(--color-success)', bg: 'var(--color-success-light)', icon: Sprout },
+  { label: 'Grade-Level', color: 'var(--color-info)', bg: 'var(--color-info-light)', icon: BookOpen },
+  { label: 'Advanced', color: 'var(--color-warning)', bg: 'var(--color-warning-light)', icon: Rocket },
 ]
 
 const bullets = [
   'Personalized 10-min micro-lessons',
   'AI doubts via text or photo',
   'Offline-capable (low bandwidth)',
-  'Visual concept knowledge graph',
 ]
 
 export default function LandingPage() {
@@ -68,119 +70,94 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-grid relative overflow-hidden flex flex-col">
-
-      {/* ── Background Orbs ─────────────────────────────────── */}
-      <div className="absolute top-[-180px] left-[-180px] w-[500px] h-[500px] rounded-full opacity-25 blur-3xl pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #3b82f6, transparent)' }} />
-      <div className="absolute bottom-[-180px] right-[-180px] w-[500px] h-[500px] rounded-full opacity-20 blur-3xl pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #8b5cf6, transparent)' }} />
-      <div className="absolute top-[40%] right-[20%] w-[300px] h-[300px] rounded-full opacity-10 blur-3xl pointer-events-none"
-        style={{ background: 'radial-gradient(circle, #06b6d4, transparent)' }} />
+    <div className="min-h-screen relative overflow-hidden flex flex-col bg-[var(--color-bg-primary)]">
+      {/* ── Subtle Background Elements ─────────────────────────────────── */}
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-[var(--color-warning-light)] opacity-40 blur-[120px]" />
+        <div className="absolute top-[30%] -right-[10%] w-[40%] h-[60%] rounded-full bg-[var(--color-info-light)] opacity-30 blur-[120px]" />
+      </div>
 
       {/* ── Main centered layout ─────────────────────────────── */}
-      <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-6xl mx-auto">
-
-          {/* Top Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: -16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="flex justify-center mb-10"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full"
-              style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.3)' }}>
-              <Sparkles size={15} className="text-blue-400" />
-              <span className="text-blue-300 text-sm font-medium">AI-Powered Adaptive Learning for Indian Classrooms</span>
-            </div>
-          </motion.div>
+      <section aria-labelledby="hero-heading" className="relative z-10 flex-1 flex items-center justify-center px-6 py-16 md:py-24">
+        <div className="w-full max-w-7xl mx-auto">
 
           {/* ── Two-column Hero ───────────────────────────────── */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-24 items-center">
 
-            {/* LEFT — Info panel */}
+            {/* LEFT — Info panel (7 columns) */}
             <motion.div
-              initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="lg:col-span-7 flex flex-col justify-center"
             >
-              <h1 className="text-5xl md:text-6xl font-black mb-4 leading-tight">
-                <span className="gradient-text-blue">TetraTHON</span>
+              <div className="inline-flex items-center gap-2 px-4 py-2 mb-8 rounded-full bg-[var(--color-warning-light)] border border-[rgba(217,119,6,0.2)] w-max">
+                <Sparkles size={16} className="text-[var(--color-accent-primary)]" aria-hidden="true" />
+                <span className="text-[var(--color-accent-primary)] text-sm font-bold uppercase tracking-wider">AI-Powered Learning</span>
+              </div>
+
+              <h1 id="hero-heading" className="text-5xl sm:text-6xl lg:text-7xl font-extrabold mb-6 leading-[1.1] tracking-tight">
+                <span className="text-[var(--color-text-primary)]">TetraTHON</span>
                 <br />
-                <span className="text-white text-3xl md:text-4xl font-bold leading-snug">
-                  Adaptive Learning<br />Engine
+                <span className="text-[var(--color-text-secondary)]">
+                  Adaptive Learning Engine
                 </span>
               </h1>
 
-              <p className="text-slate-400 text-lg leading-relaxed mb-8 max-w-md">
+              <p className="text-[var(--color-text-secondary)] text-lg md:text-xl leading-relaxed mb-10 max-w-xl font-medium">
                 Personalized Math education for Class 8–10 students.
-                Get diagnosed, learn at your pace, and resolve doubts instantly with AI.
+                Get diagnosed, learn at your pace, and resolve doubts instantly with an intelligent AI tutor.
               </p>
 
-              {/* Bullets */}
-              <ul className="space-y-3 mb-8">
+              {/* Feature mini-cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
+                {features.map((f, i) => (
+                  <motion.div
+                    key={f.title}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 + i * 0.1, duration: 0.5 }}
+                    className="flex flex-col items-start"
+                  >
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 shadow-sm border" style={{ background: f.bg, borderColor: `rgba(0,0,0,0.05)` }}>
+                      <f.icon size={24} style={{ color: f.color }} aria-hidden="true" />
+                    </div>
+                    <p className="text-base font-bold text-[var(--color-text-primary)] mb-2 tracking-tight">{f.title}</p>
+                    <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed font-medium">{f.desc}</p>
+                  </motion.div>
+                ))}
+              </div>
+
+              <ul className="flex flex-wrap gap-x-6 gap-y-3 m-0 p-0 list-none">
                 {bullets.map((b) => (
-                  <li key={b} className="flex items-center gap-3 text-sm text-slate-300">
-                    <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
+                  <li key={b} className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] font-semibold">
+                    <CheckCircle size={18} className="text-[var(--color-success)]" aria-hidden="true" />
                     {b}
                   </li>
                 ))}
               </ul>
-
-              {/* Feature mini-cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {features.map((f, i) => (
-                  <motion.div
-                    key={f.title}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 + i * 0.1 }}
-                    className="glass rounded-xl p-3 glass-hover group"
-                  >
-                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${f.gradient} flex items-center justify-center mb-2 group-hover:scale-110 transition-transform`}>
-                      <f.icon size={15} className="text-white" />
-                    </div>
-                    <p className="text-xs font-bold mb-0.5">{f.title}</p>
-                    <p className="text-xs text-slate-500 leading-relaxed">{f.desc}</p>
-                  </motion.div>
-                ))}
-              </div>
             </motion.div>
 
-            {/* RIGHT — Login / Register panel (CENTERED) */}
+            {/* RIGHT — Login / Register panel (5 columns) */}
             <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="flex justify-center"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
+              className="lg:col-span-5 flex justify-center lg:justify-end"
             >
-              <div
-                className="w-full max-w-md rounded-2xl p-8"
-                style={{
-                  background: 'rgba(14, 20, 36, 0.95)',
-                  border: '1px solid rgba(59,130,246,0.25)',
-                  boxShadow: '0 0 60px rgba(59,130,246,0.1), 0 20px 60px rgba(0,0,0,0.5)',
-                }}
-              >
-                {/* Card Header */}
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
-                    <BookOpen size={20} className="text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold">Start Your Journey</h2>
-                    <p className="text-slate-400 text-xs">Takes just 2 minutes to set up</p>
-                  </div>
+              <div className="card w-full max-w-[480px] p-8 md:p-10 border-t-4 border-t-[var(--color-accent-primary)] shadow-2xl">
+                <div className="mb-8">
+                  <h2 className="text-2xl md:text-3xl font-bold text-[var(--color-text-primary)] mb-2 tracking-tight">Start Your Journey</h2>
+                  <p className="text-[var(--color-text-secondary)] text-base font-medium">No account required. Takes just 2 minutes.</p>
                 </div>
 
-                {/* Form */}
-                <form onSubmit={handleStart} className="space-y-5">
+                <form onSubmit={handleStart} className="space-y-6" aria-describedby="trust-note">
                   <div>
-                    <label className="text-sm text-slate-400 font-medium mb-1.5 block">Your Name</label>
+                    <label htmlFor="student-name" className="text-sm text-[var(--color-text-primary)] font-bold mb-2 block uppercase tracking-wider">Your Name</label>
                     <input
+                      id="student-name"
                       type="text"
-                      className="input-field"
+                      className="input-field py-3.5 text-base shadow-sm"
                       placeholder="e.g. Arjun Sharma"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -189,12 +166,12 @@ export default function LandingPage() {
                   </div>
 
                   <div>
-                    <label className="text-sm text-slate-400 font-medium mb-1.5 block">Your Class</label>
+                    <label htmlFor="student-class" className="text-sm text-[var(--color-text-primary)] font-bold mb-2 block uppercase tracking-wider">Your Class</label>
                     <select
-                      className="input-field"
+                      id="student-class"
+                      className="input-field py-3.5 text-base shadow-sm font-medium"
                       value={grade}
                       onChange={(e) => setGrade(e.target.value)}
-                      style={{ appearance: 'none', cursor: 'pointer' }}
                     >
                       <option value="8">Class 8</option>
                       <option value="9">Class 9</option>
@@ -204,58 +181,55 @@ export default function LandingPage() {
 
                   <button
                     type="submit"
-                    className="btn-primary w-full justify-center text-base py-3.5"
+                    className="btn-primary w-full justify-center text-lg py-4 shadow-lg hover:shadow-xl mt-4"
                     disabled={loading}
                   >
                     {loading ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Setting up your profile...
+                        <div role="status" className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" aria-label="Loading" />
+                        <span>Setting up...</span>
                       </>
                     ) : (
                       <>
-                        <Zap size={18} />
-                        Take Diagnostic Quiz
-                        <ArrowRight size={18} />
+                        <Zap size={20} aria-hidden="true" />
+                        <span>Take Diagnostic Quiz</span>
+                        <ArrowRight size={20} aria-hidden="true" />
                       </>
                     )}
                   </button>
                 </form>
 
-                {/* Divider */}
-                <div className="my-5 flex items-center gap-3">
-                  <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
-                  <span className="text-xs text-slate-600">You'll be placed in one of</span>
-                  <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+                <div className="mt-10">
+                  <p className="text-xs text-[var(--color-text-muted)] font-bold uppercase tracking-wider text-center mb-4">
+                    You'll be placed in one of three tracks
+                  </p>
+                  <div className="flex gap-3 justify-center flex-wrap">
+                    {levelInfo.map((l) => (
+                      <div
+                        key={l.label}
+                        className="text-xs px-3.5 py-2 rounded-lg flex items-center gap-2 font-bold shadow-sm"
+                        style={{
+                          background: l.bg,
+                          border: `1px solid ${l.color}33`,
+                          color: l.color,
+                        }}
+                      >
+                        <l.icon size={16} aria-hidden="true" />
+                        {l.label}
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Level badges */}
-                <div className="flex gap-2 justify-center flex-wrap">
-                  {levelInfo.map((l) => (
-                    <motion.span
-                      key={l.label}
-                      whileHover={{ scale: 1.05 }}
-                      className="text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 cursor-default"
-                      style={{
-                        background: `${l.color}15`,
-                        border: `1px solid ${l.color}35`,
-                        color: l.color,
-                      }}
-                    >
-                      {l.emoji} {l.label}
-                    </motion.span>
-                  ))}
-                </div>
-
-                {/* Trust note */}
-                <p className="text-center text-xs text-slate-600 mt-4">
-                  No account needed · Free to use · Works offline
+                <p id="trust-note" className="text-center text-sm font-semibold text-[var(--color-text-muted)] mt-8">
+                  Free to use · Works completely offline
                 </p>
               </div>
             </motion.div>
+
           </div>
         </div>
-      </div>
+      </section>
     </div>
   )
 }

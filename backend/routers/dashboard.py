@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 import logging
 
-from database import get_db, Student, Session as LearningSession, QuizAttempt, Doubt, StudentConceptMastery
+from database import get_db, Student, Session as LearningSession, QuizAttempt, Doubt, StudentConceptMastery, Concept
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -44,6 +44,41 @@ def get_dashboard(student_id: int, db: Session = Depends(get_db)):
         if attempt.is_correct:
             concept_performance[concept]["correct"] += 1
 
+    # Build the full concept graph (all concepts + student mastery)
+    all_concepts = db.query(Concept).all()
+    concept_graph = {"nodes": [], "edges": []}
+    
+    # Map mastery by concept id for O(1) lookup
+    mastery_by_concept = {m.concept_id: m for m in masteries}
+    
+    for c in all_concepts:
+        # Determine status
+        status = "unattempted"
+        pct = None
+        if c.id in mastery_by_concept:
+            m = mastery_by_concept[c.id]
+            pct = round(m.mastery_level * 100, 1)
+            status = "weak" if m.is_weak else "mastered"
+        
+        # Override for root/parent categories that have no direct practice
+        if c.parent_concept is None or c.name in ["Algebra", "Arithmetic"]:
+            status = "root"
+
+        concept_graph["nodes"].append({
+            "id": c.name,  # Using name as ID for frontend compatibility
+            "name": c.name,
+            "parent_id": c.parent_concept,
+            "mastery": pct,
+            "status": status
+        })
+        
+        # Add edge if it has a parent
+        if c.parent_concept:
+            concept_graph["edges"].append({
+                "source": c.parent_concept,
+                "target": c.name
+            })
+
     logger.info(f"Dashboard fetched for student {student_id}")
 
     return {
@@ -62,6 +97,7 @@ def get_dashboard(student_id: int, db: Session = Depends(get_db)):
             "weak_concepts_count": len(weak_concepts),
         },
         "concept_performance": concept_performance,
+        "concept_graph": concept_graph,
         "recent_doubts": [
             {
                 "question": d.question_text[:80] + "...",

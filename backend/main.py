@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
-from database import engine, Base
-from routers import students, quiz, lessons, doubts, dashboard
+from database import engine, Base, SessionLocal
+from routers import students, quiz, lessons, doubts, dashboard, concepts
 
 # Configure logging
 logging.basicConfig(
@@ -21,6 +21,11 @@ async def lifespan(app: FastAPI):
     # Create all DB tables on startup
     Base.metadata.create_all(bind=engine)
     logger.info("✅ Database tables created/verified")
+    
+    # Auto-seed concepts
+    with SessionLocal() as db:
+        concepts.seed_concepts(db)
+        logger.info("✅ Concept taxonomy seeded/verified")
     yield
     logger.info("🛑 Shutting down TetraTHON API server...")
 
@@ -47,6 +52,7 @@ app.include_router(quiz.router, prefix="/api/quiz", tags=["Quiz"])
 app.include_router(lessons.router, prefix="/api/lessons", tags=["Lessons"])
 app.include_router(doubts.router, prefix="/api/doubts", tags=["Doubts"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
+app.include_router(concepts.router, prefix="/api/concepts", tags=["Concepts"])
 
 
 @app.get("/")

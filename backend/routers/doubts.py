@@ -7,7 +7,8 @@ import os
 import base64
 from pathlib import Path
 
-from database import get_db, Doubt, Student
+from database import get_db, Doubt, Student, Concept, StudentConceptMastery
+from routers.concepts import get_concept_id_by_name
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -15,8 +16,27 @@ logger = logging.getLogger(__name__)
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
+UPLOAD_DIR.mkdir(exist_ok=True)
 
-async def get_gemini_response(question: str, mode: str, image_data: Optional[str] = None) -> str:
+NCERT_REFERENCES = {
+    "Linear Equations": "NCERT Class 8, Ch. 2 — Linear Equations in One Variable",
+    "Polynomials": "NCERT Class 9, Ch. 2 — Polynomials",
+    "Quadratic Equations": "NCERT Class 10, Ch. 4 — Quadratic Equations",
+    "Trigonometry": "NCERT Class 10, Ch. 8 — Introduction to Trigonometry",
+    "Arithmetic Progressions": "NCERT Class 10, Ch. 5 — Arithmetic Progressions",
+    "Solving Linear Equations": "NCERT Class 8, Ch. 2 — Linear Equations in One Variable",
+    "Word Problems (Linear)": "NCERT Class 8, Ch. 2, Section 2.6",
+    "Polynomial Operations": "NCERT Class 9, Ch. 2, Section 2.3",
+    "Factorization": "NCERT Class 8, Ch. 14 — Factorisation",
+    "Quadratic Formula": "NCERT Class 10, Ch. 4, Section 4.3",
+    "Nature of Roots": "NCERT Class 10, Ch. 4, Section 4.4",
+    "nth Term of AP": "NCERT Class 10, Ch. 5, Section 5.2",
+    "Sum of AP": "NCERT Class 10, Ch. 5, Section 5.3",
+    "Trigonometric Ratios": "NCERT Class 10, Ch. 8, Section 8.2",
+    "Trigonometric Identities": "NCERT Class 10, Ch. 8, Section 8.4",
+}
+
+async def get_gemini_response(question: str, mode: str, taxonomy_names: list, image_data: Optional[str] = None) -> dict:
     """Call Gemini API for doubt resolution."""
     try:
         from google import genai
@@ -38,16 +58,26 @@ NEVER give the direct answer. Instead:
 2. Break the problem into smaller parts
 3. Hint at the relevant concept or formula
 4. Encourage them with phrases like "You're on the right track!"
-Keep it friendly, concise, and encouraging. Use simple English."""
+Keep it friendly, concise, and encouraging. Use simple English.
+
+IMPORTANT RULES FOR THE END OF YOUR RESPONSE:
+At the very end of your response, on a new line, you MUST write exactly:
+ROOT_CONCEPTS: [1-2 concepts from the taxonomy list that relate to this doubt, comma separated]
+Taxonomy list: {', '.join(taxonomy_names)}"""
         else:
-            system_prompt = """You are a helpful Math tutor for Indian Class 8-10 students.
+            system_prompt = f"""You are a helpful Math tutor for Indian Class 8-10 students.
 Provide a clear, step-by-step solution:
 1. Identify the concept being tested
 2. State the relevant formula/rule
 3. Show each step with explanation
 4. Verify the answer
 5. Mention a quick tip to remember this concept
-Use simple language, emojis where helpful, and keep it under 200 words."""
+Use simple language, emojis where helpful, and keep it under 200 words.
+
+IMPORTANT RULES FOR THE END OF YOUR RESPONSE:
+At the very end of your response, on a new line, you MUST write exactly:
+ROOT_CONCEPTS: [1-2 concepts from the taxonomy list that relate to this doubt, comma separated]
+Taxonomy list: {', '.join(taxonomy_names)}"""
 
         full_prompt = f"{system_prompt}\n\nStudent's question: {question}"
 
@@ -67,17 +97,34 @@ Use simple language, emojis where helpful, and keep it under 200 words."""
             )
 
         logger.info(f"✅ Gemini response generated for mode: {mode}")
-        return response.text
+        raw_text = response.text
+        
+        # Parse out ROOT_CONCEPTS
+        lines = raw_text.split('\n')
+        concepts = []
+        clean_text = []
+        for line in lines:
+            if line.startswith("ROOT_CONCEPTS:"):
+                c_str = line.replace("ROOT_CONCEPTS:", "").strip()
+                concepts = [c.strip() for c in c_str.split(",") if c.strip() in taxonomy_names]
+            else:
+                clean_text.append(line)
+                
+        return {
+            "response": "\n".join(clean_text).strip(),
+            "concepts": concepts
+        }
 
     except Exception as e:
         logger.error(f"❌ Gemini API error: {e}")
         return get_mock_response(question, mode)
 
 
-def get_mock_response(question: str, mode: str) -> str:
+def get_mock_response(question: str, mode: str) -> dict:
     """Fallback mock response when API key is not set."""
     if mode == "socratic":
-        return """🤔 **Let's think about this together!**
+        return {
+            "response": """🤔 **Let's think about this together!**
 
 Before I guide you, ask yourself:
 1. **What type of problem is this?** (Linear equation? Polynomial? Geometry?)
@@ -86,9 +133,12 @@ Before I guide you, ask yourself:
 
 💡 *Hint:* Try to identify the unknown variable first, then work backwards from what you know.
 
-What do you think the first step should be? Give it a try! 🎯"""
+What do you think the first step should be? Give it a try! 🎯""",
+            "concepts": ["Linear Equations"]
+        }
     else:
-        return f"""📚 **Step-by-Step Solution**
+        return {
+            "response": f"""📚 **Step-by-Step Solution**
 
 **Your Question:** {question[:100]}...
 
@@ -102,7 +152,9 @@ What do you think the first step should be? Give it a try! 🎯"""
 
 ⚠️ *Note: Connect your Gemini API key in the backend `.env` file for AI-powered personalized explanations!*
 
-💡 **Quick Tip:** Always verify your answer by substituting it back into the original equation!"""
+💡 **Quick Tip:** Always verify your answer by substituting it back into the original equation!""",
+            "concepts": ["Linear Equations"]
+        }
 
 
 @router.post("/ask")
@@ -136,8 +188,22 @@ async def ask_doubt(
         if not question or question.strip() == "":
             question = "Please solve the math problem shown in this image."
 
+    all_concepts = db.query(Concept).all()
+    taxonomy_names = [c.name for c in all_concepts]
+    
     # Get AI response
-    response_text = await get_gemini_response(question, mode, image_data)
+    result = await get_gemini_response(question, mode, taxonomy_names, image_data)
+    response_text = result["response"]
+    identified_concepts = result["concepts"]
+    
+    # Format curriculum citations
+    citations = []
+    for c in identified_concepts:
+        if c in NCERT_REFERENCES and NCERT_REFERENCES[c] not in citations:
+            citations.append(NCERT_REFERENCES[c])
+            
+    if citations:
+        response_text += "\n\n" + "\n".join([f"📖 **Reference:** {cit}" for cit in citations])
 
     # Save to DB
     doubt = Doubt(
@@ -146,9 +212,52 @@ async def ask_doubt(
         image_path=image_path,
         response_text=response_text,
         mode=mode,
+        concept_tags=",".join(identified_concepts),
         resolved=True,
     )
     db.add(doubt)
+    
+    # Update Concept Mastery and find related weak areas
+    related_weak_areas = []
+    for c_name in identified_concepts:
+        concept_id = get_concept_id_by_name(db, c_name)
+        if not concept_id:
+            continue
+            
+        mastery = db.query(StudentConceptMastery).filter(
+            StudentConceptMastery.student_id == student_id,
+            StudentConceptMastery.concept_id == concept_id
+        ).first()
+        
+        if not mastery:
+            mastery = StudentConceptMastery(student_id=student_id, concept_id=concept_id)
+            db.add(mastery)
+            
+        mastery.attempts += 1
+        # E.g. asking a direct doubt implies weakness, asking socratic might be neutral, let's just mark it
+        mastery.is_weak = True
+        
+        # Sibling/Child concepts that are also weak
+        c_obj = next((c for c in all_concepts if c.id == concept_id), None)
+        if c_obj:
+            related_ids = []
+            if c_obj.parent_concept:
+                sibs = [x.id for x in all_concepts if x.parent_concept == c_obj.parent_concept and x.id != c_obj.id]
+                related_ids.extend(sibs)
+            kids = [x.id for x in all_concepts if x.parent_concept == c_obj.name]
+            related_ids.extend(kids)
+            
+            weak_related = db.query(StudentConceptMastery).filter(
+                StudentConceptMastery.student_id == student_id,
+                StudentConceptMastery.concept_id.in_(related_ids),
+                StudentConceptMastery.is_weak == True
+            ).all()
+            
+            for wr in weak_related:
+                n = next((x.name for x in all_concepts if x.id == wr.concept_id), None)
+                if n and n not in related_weak_areas:
+                    related_weak_areas.append(n)
+
     db.commit()
     db.refresh(doubt)
 
@@ -158,6 +267,8 @@ async def ask_doubt(
         "question": question,
         "response": response_text,
         "mode": mode,
+        "concept_tags": identified_concepts,
+        "related_weak_areas": related_weak_areas[:3], # Limit to 3
         "has_image": image is not None,
     }
 

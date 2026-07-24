@@ -51,6 +51,8 @@ export const lessonsApi = {
   getByLevel: (level) => api.get(`/lessons/${level}`),
   startSession: (student_id, lesson_id) =>
     api.post('/lessons/session/start', { student_id, lesson_id }),
+  completeSession: (student_id, lesson_id, time_spent_seconds) =>
+    api.post('/lessons/session/complete', { student_id, lesson_id, time_spent_seconds }),
   submitPractice: (data) => api.post('/lessons/practice/answer', data),
 }
 
@@ -73,6 +75,12 @@ export const doubtsApi = {
 // ─── Dashboard API ─────────────────────────────────────────────────────────
 export const dashboardApi = {
   get: (student_id) => api.get(`/dashboard/${student_id}`),
+}
+
+// ─── Concepts API ──────────────────────────────────────────────────────────
+export const conceptsApi = {
+  getAll: () => api.get('/concepts/'),
+  getTree: () => api.get('/concepts/tree'),
 }
 
 export default api

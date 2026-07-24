@@ -20,32 +20,36 @@ const ProtectedRoute = ({ children }) => {
 function AppContent() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen" style={{ background: 'var(--color-bg-primary)' }}>
+      <a href="#main-content" className="skip-to-content">Skip to main content</a>
+      <div className="min-h-screen flex flex-col" style={{ background: 'var(--color-bg-primary)' }}>
         <Navbar />
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/quiz" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
-          <Route path="/result" element={<ProtectedRoute><ResultPage /></ProtectedRoute>} />
-          <Route path="/lesson" element={<ProtectedRoute><LessonPage /></ProtectedRoute>} />
-          <Route path="/doubt" element={<ProtectedRoute><DoubtPage /></ProtectedRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <main id="main-content" className="flex-1 flex flex-col">
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/quiz" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
+            <Route path="/result" element={<ProtectedRoute><ResultPage /></ProtectedRoute>} />
+            <Route path="/lesson" element={<ProtectedRoute><LessonPage /></ProtectedRoute>} />
+            <Route path="/doubt" element={<ProtectedRoute><DoubtPage /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
       </div>
 
       <Toaster
         position="top-right"
         toastOptions={{
           style: {
-            background: 'rgba(20, 28, 46, 0.95)',
-            color: '#f1f5f9',
-            border: '1px solid rgba(255,255,255,0.1)',
-            backdropFilter: 'blur(20px)',
-            fontFamily: 'Inter, sans-serif',
+            background: 'var(--color-bg-card)',
+            color: 'var(--color-text-primary)',
+            border: '1px solid var(--color-border)',
+            boxShadow: 'var(--shadow-card-hover)',
+            fontFamily: 'Plus Jakarta Sans, sans-serif',
             fontSize: '0.875rem',
+            fontWeight: '600',
           },
-          success: { iconTheme: { primary: '#10b981', secondary: 'white' } },
-          error: { iconTheme: { primary: '#ef4444', secondary: 'white' } },
+          success: { iconTheme: { primary: '#0D9488', secondary: 'white' } },
+          error: { iconTheme: { primary: '#DC2626', secondary: 'white' } },
         }}
       />
     </BrowserRouter>
