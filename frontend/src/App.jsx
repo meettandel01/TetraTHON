@@ -14,8 +14,11 @@ import LessonPage from './pages/LessonPage';
 import PracticePage from './pages/PracticePage';
 import DoubtPage from './pages/DoubtPage';
 import ResultPage from './pages/ResultPage'; // SessionSummary
+import ReportCardPage from './pages/ReportCardPage';
 // Teacher Pages
 import TeacherDashboard from './pages/TeacherDashboard';
+import EscalationQueuePage from './pages/EscalationQueuePage';
+import RosterPage from './pages/RosterPage';
 import ParentOverview from './pages/ParentOverview';
 import AdminConsole from './pages/AdminConsole';
 
@@ -36,6 +39,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/report-card/:studentId" element={<ReportCardPage />} />
           
           <Route path="/" element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
             {/* Redirect root based on role */}
@@ -50,6 +54,7 @@ export default function App() {
               <Route path="practice" element={<PracticePage />} />
               <Route path="doubt" element={<DoubtPage />} />
               <Route path="summary" element={<ResultPage />} />
+              <Route path="report-card" element={<ReportCardPage />} />
             </Route>
             
             {/* Teacher Routes */}
@@ -57,8 +62,8 @@ export default function App() {
               <Route path="dashboard" element={<TeacherDashboard />} />
               <Route path="heatmap" element={<div className="p-8">Mastery Heatmap (WIP)</div>} />
               <Route path="item-analysis" element={<div className="p-8">Item Analysis (WIP)</div>} />
-              <Route path="escalations" element={<div className="p-8">Escalations (WIP)</div>} />
-              <Route path="roster" element={<div className="p-8">Student Roster (WIP)</div>} />
+              <Route path="escalations" element={<EscalationQueuePage />} />
+              <Route path="roster" element={<RosterPage />} />
             </Route>
 
             {/* Parent Routes */}

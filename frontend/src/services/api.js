@@ -77,10 +77,43 @@ export const dashboardApi = {
   get: (student_id) => api.get(`/dashboard/${student_id}`),
 }
 
+
 // ─── Concepts API ──────────────────────────────────────────────────────────
 export const conceptsApi = {
   getAll: () => api.get('/concepts/'),
   getTree: () => api.get('/concepts/tree'),
+}
+
+// ─── Teacher API ───────────────────────────────────────────────────────────
+export const teacherApi = {
+  getDashboard: (section = '8-A') => api.get(`/teacher/dashboard?section=${section}`),
+  getRoster: (section = '8-A') => api.get(`/teacher/roster?section=${section}`),
+}
+
+// ─── Parent API ────────────────────────────────────────────────────────────
+export const parentApi = {
+  getOverview: (childId) => api.get(`/parent/overview/${childId}`),
+  getDigest: (childId) => api.get(`/parent/digest/${childId}`),
+  getAlerts: (childId) => api.get(`/parent/alerts/${childId}`),
+}
+
+// ─── Admin API ─────────────────────────────────────────────────────────────
+export const adminApi = {
+  getCompliance: () => api.get('/admin/compliance'),
+  getContentStats: () => api.get('/admin/content-stats'),
+  importContent: (data) => api.post('/admin/import-content', data),
+}
+
+// ─── Escalations API ───────────────────────────────────────────────────────
+export const escalationsApi = {
+  getEscalations: (status = 'pending') => api.get(`/escalations/?status=${status}`),
+  claimEscalation: (id) => api.post(`/escalations/${id}/claim`),
+  respondEscalation: (id, responseText) => api.post(`/escalations/${id}/respond`, { response_text: responseText }),
+}
+
+// ─── Report Card API ───────────────────────────────────────────────────────
+export const reportCardApi = {
+  getReportCard: (studentId) => api.get(`/report-card/${studentId}`),
 }
 
 export default api
