@@ -152,18 +152,48 @@ class Escalation(Base):
     student = relationship("Student")
     teacher = relationship("Teacher")
 
+class Standard(Base):
+    __tablename__ = "standards"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50), unique=True, nullable=False)
+    description = Column(String(200), nullable=True)
+
+class Subject(Base):
+    __tablename__ = "subjects"
+    id = Column(Integer, primary_key=True, index=True)
+    standard_id = Column(Integer, ForeignKey("standards.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+
+class Chapter(Base):
+    __tablename__ = "chapters"
+    id = Column(Integer, primary_key=True, index=True)
+    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
+    name = Column(String(200), nullable=False)
+    chapter_number = Column(Integer, nullable=True)
+    description = Column(Text, nullable=True)
+
 class Concept(Base):
     __tablename__ = "concepts"
 
     id = Column(Integer, primary_key=True, index=True)
-    concept_code = Column(String(50), unique=True, index=True, nullable=False) # e.g. c1, c2
+    chapter_id = Column(Integer, ForeignKey("chapters.id"), nullable=True)
+    concept_code = Column(String(50), unique=True, index=True, nullable=False)
     name = Column(String(200), unique=True, nullable=False)
     short_name = Column(String(100), nullable=True)
-    parent_concept = Column(String(200), nullable=True)
-    subject = Column(String(100), default="Mathematics")
-    grade_range = Column(String(20), default="8")
     description = Column(Text, nullable=True)
-    ncert_citation = Column(String(200), nullable=True)
+    ncert_reference = Column(String(200), nullable=True)
+
+class LessonContent(Base):
+    __tablename__ = "lesson_contents"
+    id = Column(Integer, primary_key=True, index=True)
+    concept_id = Column(Integer, ForeignKey("concepts.id"), nullable=False)
+    level = Column(String(50), nullable=False) # Foundational, Grade-Level, Advanced
+    title = Column(String(200), nullable=False)
+    duration_minutes = Column(Integer, default=10)
+    intro_text = Column(Text, nullable=True)
+    explanation_markdown = Column(Text, nullable=True)
+    visual_hint = Column(Text, nullable=True)
+    real_world_app = Column(Text, nullable=True)
 
 class StudentConceptMastery(Base):
     __tablename__ = "student_concept_mastery"
@@ -225,6 +255,16 @@ class XpTransaction(Base):
     source = Column(String(50), nullable=False) # practice, diagnostic, lesson
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class ParentSettings(Base):
+    __tablename__ = "parent_settings"
+    
+    parent_id = Column(Integer, ForeignKey("parents.id"), primary_key=True)
+    whatsapp_digest = Column(Boolean, default=True)
+    email_alerts = Column(Boolean, default=True)
+    digest_frequency = Column(String(20), default="weekly")
+
+    parent = relationship("Parent")
+
 class ContentItem(Base):
     __tablename__ = "content_items"
     
@@ -237,8 +277,25 @@ class ContentItem(Base):
     hints = Column(Text, nullable=True) # JSON string
     explanation = Column(Text, nullable=True)
     citation = Column(String(200), nullable=True)
+    difficulty = Column(String(20), default="medium") # easy, medium, hard
+    usage_type = Column(String(20), default="practice") # diagnostic, practice
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class DoubtFeedback(Base):
+    __tablename__ = "doubt_feedbacks"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    doubt_id = Column(Integer, ForeignKey("doubts.id"), nullable=False)
+    upvote = Column(Boolean, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class GamificationSettings(Base):
+    __tablename__ = "gamification_settings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    daily_xp_cap = Column(Integer, default=500)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 # Dependency for FastAPI routes
 def get_db():

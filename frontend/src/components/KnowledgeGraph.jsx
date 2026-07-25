@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import CytoscapeComponent from 'react-cytoscapejs'
 import { Info } from 'lucide-react'
 
@@ -19,6 +20,7 @@ const theme = {
 }
 
 export default function KnowledgeGraph({ graphData }) {
+  const navigate = useNavigate()
   const [selectedNode, setSelectedNode] = useState(null)
 
   const elements = useMemo(() => {
@@ -216,7 +218,7 @@ export default function KnowledgeGraph({ graphData }) {
           )}
           
           <button 
-            onClick={() => window.location.href = '/doubt'} 
+            onClick={() => navigate('/student/doubt', { state: { concept: selectedNode.name } })} 
             className="w-full py-2.5 bg-[var(--color-info-light)] hover:bg-[var(--color-info)] hover:text-white text-[var(--color-info)] border border-[rgba(37,99,235,0.2)] rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-info)]"
           >
             <Info size={14} aria-hidden="true" />

@@ -3,14 +3,17 @@ import json
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine, Base
 from database import User, Student, Teacher, Parent, Admin, Concept, Badge, StudentConceptMastery
+from database import Standard, Subject, Chapter, LessonContent, ContentItem, GamificationSettings
 from auth import get_pin_hash
-
-Base.metadata.drop_all(bind=engine)
-Base.metadata.create_all(bind=engine)
 
 def seed_db():
     db = SessionLocal()
     try:
+        # Check if already seeded
+        if db.query(Standard).first() is not None:
+            print("Database already seeded.")
+            return
+
         print("Seeding database...")
         
         # 1. Seed Teacher
@@ -82,51 +85,119 @@ def seed_db():
                     relation=p["relation"]
                 )
                 db.add(parent)
-                
-        # 5. Seed Concepts
-        CONCEPTS_DATA = [
-            {"code":"c1", "short":"Integers", "name":"Integer Operations", "ncert":"NCERT Class 7 Mathematics, Ch 1"},
-            {"code":"c2", "short":"Variables", "name":"Variable & Constant Identification", "ncert":"NCERT Class 8 Mathematics, Ch 2, Sec 2.1"},
-            {"code":"c3", "short":"Simplify", "name":"Expression Simplification", "ncert":"NCERT Class 8 Mathematics, Ch 2, Sec 2.1"},
-            {"code":"c4", "short":"One-Step", "name":"One-Step Linear Equation", "ncert":"NCERT Class 8 Mathematics, Ch 2, Sec 2.2"},
-            {"code":"c5", "short":"Two-Step", "name":"Two-Step Linear Equation", "ncert":"NCERT Class 8 Mathematics, Ch 2, Sec 2.2"},
-            {"code":"c6", "short":"Both Sides", "name":"Equations with Variables on Both Sides", "ncert":"NCERT Class 8 Mathematics, Ch 2, Sec 2.3"},
-            {"code":"c7", "short":"Word Problems", "name":"Word Problems (Linear Equations)", "ncert":"NCERT Class 8 Mathematics, Ch 2, Sec 2.5"},
-        ]
         
-        for c in CONCEPTS_DATA:
-            concept = Concept(
-                concept_code=c["code"],
-                short_name=c["short"],
-                name=c["name"],
-                ncert_citation=c["ncert"]
-            )
-            db.add(concept)
-            
-        # 6. Seed Badges
-        BADGES_DATA = [
-            {"code":"b1", "name":"First Steps", "desc":"Complete your first diagnostic", "icon":"✓"},
-            {"code":"b2", "name":"Streak Starter", "desc":"Maintain a 3-day streak", "icon":"🔥"},
-            {"code":"b3", "name":"Problem Solver", "desc":"Answer 10 practice questions correctly", "icon":"✎"},
-            {"code":"b4", "name":"Doubt Buster", "desc":"Resolve 5 doubts with the AI tutor", "icon":"?"},
-            {"code":"b5", "name":"Concept Master", "desc":"Reach 90% mastery on any concept", "icon":"★"},
-            {"code":"b6", "name":"Week Warrior", "desc":"Maintain a 7-day streak", "icon":"⚡"},
-        ]
-        
-        for b in BADGES_DATA:
-            badge = Badge(
-                code=b["code"],
-                name=b["name"],
-                description=b["desc"],
-                icon=b["icon"]
-            )
-            db.add(badge)
-
+        # 5. Curriculum Hierarchy
+        std8 = Standard(name="Class 8", description="Middle School Class 8")
+        std9 = Standard(name="Class 9", description="High School Class 9")
+        db.add_all([std8, std9])
         db.commit()
-        print("Database seeded successfully!")
+        
+        math8 = Subject(standard_id=std8.id, name="Mathematics")
+        sci8 = Subject(standard_id=std8.id, name="Science")
+        math9 = Subject(standard_id=std9.id, name="Mathematics")
+        db.add_all([math8, sci8, math9])
+        db.commit()
+        
+        # Chapters
+        ch_lin_eq = Chapter(subject_id=math8.id, name="Linear Equations in One Variable", chapter_number=2, description="Solving linear equations and word problems.")
+        ch_poly = Chapter(subject_id=math8.id, name="Polynomials", chapter_number=3, description="Understanding polynomials and their degrees.")
+        ch_quad = Chapter(subject_id=math9.id, name="Quadratic Equations", chapter_number=4, description="Solving quadratic equations.")
+        ch_force = Chapter(subject_id=sci8.id, name="Force and Pressure", chapter_number=11, description="Physics of force and pressure.")
+        db.add_all([ch_lin_eq, ch_poly, ch_quad, ch_force])
+        db.commit()
+        
+        # Concepts (Topics)
+        topics = []
+        topics.append(Concept(chapter_id=ch_lin_eq.id, concept_code="c1", name="One-Step Equations", short_name="One-Step", description="Basic equations with one operation.", ncert_reference="NCERT Class 8, Ch. 2 — Linear Equations in One Variable"))
+        topics.append(Concept(chapter_id=ch_lin_eq.id, concept_code="c2", name="Two-Step Equations", short_name="Two-Step", description="Equations requiring two operations to solve.", ncert_reference="NCERT Class 8, Ch. 2, Section 2.3"))
+        topics.append(Concept(chapter_id=ch_lin_eq.id, concept_code="c3", name="Word Problems", short_name="Applications", description="Real world applications of linear equations.", ncert_reference="NCERT Class 8, Ch. 2, Section 2.6"))
+        
+        topics.append(Concept(chapter_id=ch_poly.id, concept_code="p1", name="Degree of a Polynomial", short_name="Degree", description="Identifying the highest power.", ncert_reference="NCERT Class 9, Ch. 2 — Polynomials"))
+        topics.append(Concept(chapter_id=ch_poly.id, concept_code="p2", name="Factorization", short_name="Factorize", description="Splitting polynomials into factors.", ncert_reference="NCERT Class 8, Ch. 14 — Factorisation"))
+        
+        topics.append(Concept(chapter_id=ch_quad.id, concept_code="q1", name="Roots of Quadratics", short_name="Roots", description="Finding solutions for degree 2 polynomials.", ncert_reference="NCERT Class 10, Ch. 4 — Quadratic Equations"))
+        
+        topics.append(Concept(chapter_id=ch_force.id, concept_code="s1", name="Types of Forces", short_name="Forces", description="Contact and non-contact forces.", ncert_reference="NCERT Class 8, Ch. 11 — Force and Pressure"))
+        
+        db.add_all(topics)
+        db.commit()
+        
+        # Map concept codes to IDs for easy access
+        c_map = {t.concept_code: t.id for t in db.query(Concept).all()}
+        
+        # 6. Lesson Content
+        lessons = [
+            LessonContent(
+                concept_id=c_map["c1"], level="Foundational", title="Intro to One-Step Equations", duration_minutes=10,
+                intro_text="Let's start with the basics! Algebra is like a puzzle where we find the missing piece.",
+                explanation_markdown="## What is a Variable?\nA variable is just a letter that stands for an unknown number.\n\n**Rule:** Whatever you do to one side, do the same to the other!\n\nStep 1: Write `x + 4 = 10`\nStep 2: Subtract 4 from both sides: `x = 6`.",
+                visual_hint="Think of a balance scale — both sides must always be equal!",
+                real_world_app="Used in calculating discounts."
+            ),
+            LessonContent(
+                concept_id=c_map["c1"], level="Grade-Level", title="Mastering One-Step Equations", duration_minutes=15,
+                intro_text="Time to master solving equations with a single operation.",
+                explanation_markdown="## The Golden Rule of Algebra\nIsolate the variable by performing the inverse operation on both sides of the equals sign.\n\n`3x = 12` -> Divide by 3 -> `x = 4`\n`x/2 = 5` -> Multiply by 2 -> `x = 10`.",
+                visual_hint="Inverse operations are opposites. (+) and (-), (*) and (/).",
+                real_world_app="Used in physics to find speed given distance and time."
+            ),
+            LessonContent(
+                concept_id=c_map["p1"], level="Grade-Level", title="Understanding Polynomial Degrees", duration_minutes=12,
+                intro_text="Polynomials are algebraic expressions. The degree is their highest power.",
+                explanation_markdown="## Finding the Degree\nLook at all the terms in the polynomial. Find the term with the highest exponent on its variable.\n\nExample: In `4x^3 - 2x + 7`, the highest exponent is 3. So the degree is 3.",
+                visual_hint="Look for the biggest number in the 'superscript' position.",
+                real_world_app="Polynomials model real-world curves like rollercoasters and economics graphs."
+            )
+        ]
+        db.add_all(lessons)
+        db.commit()
+        
+        # 7. Content Items (Questions for Quiz and Practice)
+        questions = [
+            # One-Step Equations (c1)
+            ContentItem(concept_id=c_map["c1"], type="mcq", text="Solve for x: x + 7 = 15", options=json.dumps({"A":"7","B":"8","C":"9","D":"22"}), correct="B", explanation="x = 15 - 7 = 8", difficulty="easy", usage_type="diagnostic"),
+            ContentItem(concept_id=c_map["c1"], type="mcq", text="Solve: 3x = 18", options=json.dumps({"A":"3","B":"6","C":"15","D":"54"}), correct="B", explanation="x = 18 ÷ 3 = 6", difficulty="easy", usage_type="diagnostic"),
+            ContentItem(concept_id=c_map["c1"], type="mcq", text="Solve for y: y - 4 = 10", options=json.dumps({"A":"6","B":"14","C":"10","D":"-6"}), correct="B", explanation="y = 10 + 4 = 14", difficulty="easy", usage_type="practice"),
+            ContentItem(concept_id=c_map["c1"], type="mcq", text="If x/4 = 5, what is x?", options=json.dumps({"A":"20","B":"1.25","C":"9","D":"1"}), correct="A", explanation="Multiply both sides by 4: x = 20", difficulty="medium", usage_type="practice"),
+            
+            # Two-Step Equations (c2)
+            ContentItem(concept_id=c_map["c2"], type="mcq", text="Solve for x: 3x - 9 = 0", options=json.dumps({"A":"0","B":"3","C":"9","D":"-3"}), correct="B", explanation="Add 9, then divide by 3: 3x = 9 -> x = 3", difficulty="medium", usage_type="diagnostic"),
+            ContentItem(concept_id=c_map["c2"], type="mcq", text="Solve: 2x + 5 = 17", options=json.dumps({"A":"6","B":"11","C":"12","D":"7"}), correct="A", explanation="2x = 12 -> x = 6", difficulty="medium", usage_type="practice"),
+            ContentItem(concept_id=c_map["c2"], type="mcq", text="If 5(x - 2) = 15, find x.", options=json.dumps({"A":"5","B":"3","C":"7","D":"25"}), correct="A", explanation="x - 2 = 3 -> x = 5", difficulty="hard", usage_type="practice"),
+            
+            # Polynomial Degree (p1)
+            ContentItem(concept_id=c_map["p1"], type="mcq", text="What is the degree of 4x³ - 2x + 7?", options=json.dumps({"A":"1","B":"2","C":"3","D":"7"}), correct="C", explanation="Highest power is 3.", difficulty="easy", usage_type="diagnostic"),
+            ContentItem(concept_id=c_map["p1"], type="mcq", text="Find the degree of x^5 + 3x^2 - x^6", options=json.dumps({"A":"5","B":"2","C":"6","D":"-6"}), correct="C", explanation="Highest power is 6.", difficulty="medium", usage_type="practice"),
+            
+            # Polynomial Factorization (p2)
+            ContentItem(concept_id=c_map["p2"], type="mcq", text="Factorize: x² - 7x + 12", options=json.dumps({"A":"(x-3)(x-4)","B":"(x+3)(x+4)","C":"(x-6)(x-2)","D":"(x-1)(x-12)"}), correct="A", explanation="-3 and -4 add to -7 and multiply to 12.", difficulty="medium", usage_type="diagnostic"),
+            
+            # Science Force (s1)
+            ContentItem(concept_id=c_map["s1"], type="mcq", text="Which of the following is a non-contact force?", options=json.dumps({"A":"Friction","B":"Tension","C":"Magnetic Force","D":"Applied Force"}), correct="C", explanation="Magnets can exert force from a distance.", difficulty="easy", usage_type="diagnostic"),
+            ContentItem(concept_id=c_map["s1"], type="mcq", text="The SI unit of force is:", options=json.dumps({"A":"Joule","B":"Newton","C":"Pascal","D":"Watt"}), correct="B", explanation="Force is measured in Newtons (N).", difficulty="easy", usage_type="practice")
+        ]
+        db.add_all(questions)
+        db.commit()
+        
+        # 8. Badges
+        BADGES_DATA = [
+            {"code":"b1", "name":"First Quiz Ace", "desc":"Score 100% on your first diagnostic", "icon":"🎯"},
+            {"code":"b2", "name":"Streak Starter", "desc":"Maintain a 3-day learning streak", "icon":"🔥"},
+            {"code":"b3", "name":"Doubt Destroyer", "desc":"Resolve 5 doubts with AI", "icon":"🧠"}
+        ]
+        for b in BADGES_DATA:
+            badge = Badge(code=b["code"], name=b["name"], description=b["desc"], icon=b["icon"], criteria_type="streak", criteria_value=3)
+            db.add(badge)
+        
+        # 9. Gamification Settings
+        db.add(GamificationSettings(daily_xp_cap=500))
+        db.commit()
+        
+        print("Database seeded successfully.")
+
     except Exception as e:
-        print(f"Error seeding database: {e}")
         db.rollback()
+        print(f"Error seeding database: {e}")
     finally:
         db.close()
 

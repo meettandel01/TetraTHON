@@ -2,19 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { reportCardApi } from '../services/api';
 import toast from 'react-hot-toast';
 import { useParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function ReportCardPage() {
   const { studentId } = useParams();
+  const { user } = useAuth();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // If we're on the teacher view, we'll get a studentId from params.
-    // Otherwise, we could fetch for the current logged-in student.
-    // For this demo, let's assume we have a studentId or we fetch for 's01' (default demo student).
-    const idToFetch = studentId || '1'; // Defaulting to 1 for demo purposes if no ID
-    fetchReport(idToFetch);
-  }, [studentId]);
+    const idToFetch = studentId || user?.student_id; 
+    if (idToFetch) {
+      fetchReport(idToFetch);
+    }
+  }, [studentId, user]);
 
   const fetchReport = async (id) => {
     setLoading(true);
@@ -29,17 +30,15 @@ export default function ReportCardPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="w-12 h-12 border-4 border-[var(--border)] border-t-[var(--sky)] rounded-full animate-spin"></div>
-      </div>
-    );
+    return <div className="screen"><div className="center-card" style={{padding: '40px'}}><div className="spinner"></div></div></div>;
   }
 
   if (!report) {
     return (
-      <div className="p-8 text-center">
-        <h2 className="text-xl font-bold">Report Card not available</h2>
+      <div className="screen">
+        <div className="card center-card">
+          <h2>Report Card not available</h2>
+        </div>
       </div>
     );
   }
@@ -47,101 +46,94 @@ export default function ReportCardPage() {
   const { student_name, grade, section, mastery_percentage, overall_grade, doubt_stats, concept_status, strengths, weaknesses, remarks } = report;
 
   return (
-    <div className="p-8 max-w-4xl mx-auto bg-[var(--paper)] min-h-screen">
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--r-lg)] p-8 shadow-[var(--shadow)] relative overflow-hidden">
-        
-        {/* Decorative Header */}
-        <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-[var(--sky)] to-[var(--forest)]"></div>
+    <div className="screen">
+      <div className="page-head">
+        <div>
+          <h1>Student Report Card</h1>
+          <p className="page-sub">Sahaay Adaptive Learning Platform</p>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <h2>{student_name}</h2>
+          <p className="muted small">Grade: {grade} &middot; Section: {section}</p>
+        </div>
+      </div>
 
-        <div className="flex justify-between items-start mb-10 border-b border-[var(--border)] pb-8">
-          <div>
-            <h1 className="text-4xl font-bold font-serif text-[var(--ink)] mb-2">Student Report Card</h1>
-            <p className="text-[var(--ink-soft)] text-lg">Sahaay Adaptive Learning Platform</p>
+      <div className="grid-2">
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--forest-soft)', borderColor: '#a3d9c1' }}>
+          <span className="eyebrow" style={{ color: '#0A6B44' }}>Overall Grade</span>
+          <span style={{ fontSize: '4rem', fontFamily: 'var(--font-serif)', fontWeight: 'bold', color: '#0A6B44' }}>{overall_grade}</span>
+        </div>
+        <div className="grid-2">
+          <div className="card" style={{ backgroundColor: '#F0ECDF' }}>
+            <span className="eyebrow">Mastery Score</span>
+            <span className="mono" style={{ fontSize: '2rem' }}>{mastery_percentage}%</span>
           </div>
-          <div className="text-right">
-            <h2 className="text-2xl font-bold">{student_name}</h2>
-            <p className="text-[var(--ink-faint)]">Grade: {grade} • Section: {section}</p>
+          <div className="card" style={{ backgroundColor: '#F0ECDF' }}>
+            <span className="eyebrow">Doubts Asked</span>
+            <span className="mono" style={{ fontSize: '2rem' }}>{doubt_stats.total}</span>
+          </div>
+          <div className="card" style={{ backgroundColor: '#F0ECDF' }}>
+            <span className="eyebrow">Resolved Doubts</span>
+            <span className="mono" style={{ fontSize: '2rem' }}>{doubt_stats.resolved}</span>
+          </div>
+          <div className="card" style={{ backgroundColor: '#F0ECDF' }}>
+            <span className="eyebrow">Unresolved</span>
+            <span className="mono" style={{ fontSize: '2rem' }}>{doubt_stats.unresolved}</span>
           </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
-          <div className="col-span-1 flex flex-col items-center justify-center bg-[var(--forest-soft)] rounded-[var(--r-lg)] p-6 border border-[#a3d9c1]">
-            <span className="text-sm font-bold text-[#0A6B44] uppercase tracking-wide mb-2">Overall Grade</span>
-            <span className="text-6xl font-serif font-bold text-[#0A6B44]">{overall_grade}</span>
-          </div>
-          
-          <div className="col-span-2 grid grid-cols-2 gap-4">
-            <div className="bg-[#F0ECDF] rounded-[var(--r-md)] p-5">
-              <span className="text-xs font-bold text-[var(--ink-faint)] uppercase block mb-1">Mastery Score</span>
-              <span className="text-3xl font-bold font-mono">{mastery_percentage}%</span>
-            </div>
-            <div className="bg-[#F0ECDF] rounded-[var(--r-md)] p-5">
-              <span className="text-xs font-bold text-[var(--ink-faint)] uppercase block mb-1">Doubts Asked</span>
-              <span className="text-3xl font-bold font-mono">{doubt_stats.total}</span>
-            </div>
-            <div className="bg-[#F0ECDF] rounded-[var(--r-md)] p-5">
-              <span className="text-xs font-bold text-[var(--ink-faint)] uppercase block mb-1">Resolved Doubts</span>
-              <span className="text-3xl font-bold font-mono">{doubt_stats.resolved}</span>
-            </div>
-            <div className="bg-[#F0ECDF] rounded-[var(--r-md)] p-5">
-              <span className="text-xs font-bold text-[var(--ink-faint)] uppercase block mb-1">Unresolved</span>
-              <span className="text-3xl font-bold font-mono">{doubt_stats.unresolved}</span>
-            </div>
-          </div>
-        </div>
+      <div className="card">
+        <p className="eyebrow">Concept Breakdown</p>
+        <div className="grid-2" style={{ marginTop: '16px' }}>
+          {Object.entries(concept_status).map(([concept, status]) => {
+            let badgeClass = 'badge-neutral';
+            if (status === 'Mastered') badgeClass = 'badge-grade'; // Grade-Level (greenish) or we can use custom color
+            if (status === 'In Progress') badgeClass = 'badge-advanced';
+            if (status === 'Needs Work') badgeClass = 'badge-foundational';
 
-        <div className="mb-10">
-          <h3 className="text-xl font-bold font-serif mb-4 border-b border-[var(--border)] pb-2">Concept Breakdown</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {Object.entries(concept_status).map(([concept, status]) => (
-              <div key={concept} className="flex justify-between items-center p-3 bg-[var(--paper)] border border-[var(--border)] rounded-[var(--r-sm)]">
-                <span className="font-semibold text-sm">{concept}</span>
-                <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                  status === 'Mastered' ? 'bg-[var(--forest-soft)] text-[#0A6B44]' :
-                  status === 'In Progress' ? 'bg-[var(--sky-soft)] text-[#2947C4]' :
-                  'bg-[var(--marigold-soft)] text-[#8C5C13]'
-                }`}>
-                  {status}
-                </span>
+            return (
+              <div key={concept} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+                <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{concept}</span>
+                <span className={`badge-sm ${badgeClass}`}>{status}</span>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-          <div>
-            <h3 className="text-lg font-bold font-serif mb-3 text-[#0A6B44]">Strengths</h3>
-            {strengths.length > 0 ? (
-              <ul className="list-disc pl-5 text-[var(--ink-soft)] text-sm space-y-1">
-                {strengths.map(s => <li key={s}>{s}</li>)}
-              </ul>
-            ) : (
-              <p className="text-sm text-[var(--ink-faint)] italic">No specific strengths identified yet.</p>
-            )}
-          </div>
-          <div>
-            <h3 className="text-lg font-bold font-serif mb-3 text-[#A5281F]">Areas for Improvement</h3>
-            {weaknesses.length > 0 ? (
-              <ul className="list-disc pl-5 text-[var(--ink-soft)] text-sm space-y-1">
-                {weaknesses.map(w => <li key={w}>{w}</li>)}
-              </ul>
-            ) : (
-              <p className="text-sm text-[var(--ink-faint)] italic">No major weaknesses identified.</p>
-            )}
-          </div>
+      <div className="grid-2">
+        <div className="card">
+          <h3 style={{ color: '#0A6B44' }}>Strengths</h3>
+          {strengths.length > 0 ? (
+            <ul style={{ paddingLeft: '20px', marginTop: '10px' }}>
+              {strengths.map(s => <li key={s} className="muted small" style={{ fontSize: '14px', marginBottom: '4px' }}>{s}</li>)}
+            </ul>
+          ) : (
+            <p className="muted small italic">No specific strengths identified yet.</p>
+          )}
         </div>
-
-        <div className="bg-[var(--marigold-soft)] rounded-[var(--r-md)] p-6 border border-[#d6af7a]">
-          <h3 className="text-sm font-bold text-[#8C5C13] uppercase tracking-wider mb-2">Teacher's Remarks</h3>
-          <p className="text-[#5a3a0b] italic">"{remarks}"</p>
+        <div className="card">
+          <h3 style={{ color: 'var(--redpen)' }}>Areas for Improvement</h3>
+          {weaknesses.length > 0 ? (
+            <ul style={{ paddingLeft: '20px', marginTop: '10px' }}>
+              {weaknesses.map(w => <li key={w} className="muted small" style={{ fontSize: '14px', marginBottom: '4px' }}>{w}</li>)}
+            </ul>
+          ) : (
+            <p className="muted small italic">No major weaknesses identified.</p>
+          )}
         </div>
+      </div>
 
-        <div className="mt-8 text-center pt-6 border-t border-[var(--border)]">
-          <button className="bg-[var(--ink)] text-[var(--paper)] px-6 py-2 rounded-full font-bold text-sm hover:bg-[#2B3350] print:hidden" onClick={() => window.print()}>
-            Print Report Card
-          </button>
-        </div>
+      <div className="card" style={{ backgroundColor: 'var(--marigold-soft)', borderColor: '#d6af7a' }}>
+        <p className="eyebrow" style={{ color: '#8C5C13' }}>Teacher's Remarks</p>
+        <p style={{ color: '#5a3a0b', fontStyle: 'italic', marginTop: '8px' }}>"{remarks}"</p>
+      </div>
 
+      <div style={{ textAlign: 'center', marginTop: '32px' }}>
+        <button className="btn btn-primary" onClick={() => window.print()}>
+          Print Report Card
+        </button>
       </div>
     </div>
   );

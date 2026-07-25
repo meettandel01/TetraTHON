@@ -1,91 +1,128 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Stepper from '../components/Stepper';
+import api, { quizApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { Target, Check, X, ArrowRight, Clock } from 'lucide-react';
-import api from '../services/api';
 
-const TOTAL_QUESTIONS = 5;
+// Dynamic assessment target
+const DEFAULT_TOTAL_QUESTIONS = 5;
 
 export default function QuizPage() {
-  const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+  const conceptId = location.state?.concept_id || 1; // Default to 1 if directly accessed
   
   const [questions, setQuestions] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selected, setSelected] = useState(null);
-  const [revealed, setRevealed] = useState(false);
-  const [feedback, setFeedback] = useState(null);
+  const [answers, setAnswers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     fetchQuestions();
-  }, []);
+  }, [conceptId]);
 
   const fetchQuestions = async () => {
     try {
-      // Fetch quiz questions. Using the existing /api/quiz/questions endpoint.
-      const res = await api.get('/quiz/questions');
-      setQuestions(res.data);
+      const res = await api.get(`/quiz/questions?concept_id=${conceptId}`);
+      if (Array.isArray(res.data)) {
+        setQuestions(res.data);
+      } else {
+        throw new Error("Response is not an array");
+      }
     } catch (e) {
-      console.error(e);
-      // Fallback dummy data for demo
-      setQuestions([
-        { id: '1', text: 'Which of the following is a linear equation in one variable?', concept: 'Variables', difficulty: 'easy', options: { A: 'x + y = 5', B: 'x² + 2 = 6', C: '2x - 3 = 7', D: 'x³ = 8' }, correct: 'C' }
-      ]);
+      console.error('Failed to fetch quiz questions:', e);
+      // Show error state instead of fake questions
+      setQuestions([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelect = (key) => {
-    if (revealed || checking) return;
-    setSelected(key);
+  const handleSelect = (idx) => {
+    setSelected(idx);
   };
 
-  const handleCheck = async () => {
-    if (!selected || checking) return;
-    setChecking(true);
-    try {
-      const q = questions[currentIdx];
-      // Simulated check for demo
-      const isCorrect = selected === q.correct;
-      setFeedback({
-        isCorrect,
-        correct_option: q.correct,
-        explanation: isCorrect ? "Great job! That's correct." : "Not quite. Remember that a linear equation in one variable has only one variable with a maximum power of 1."
-      });
-      setRevealed(true);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setChecking(false);
-    }
-  };
+  const handleNext = async () => {
+    const q = questions[currentIdx];
+    const isCorrect = String.fromCharCode(65 + selected) === (typeof q.correct === 'number' ? String.fromCharCode(65 + q.correct) : q.correct);
+    const updatedAnswers = [...answers, {
+      question_id: q.id,
+      selected_option: String.fromCharCode(65 + selected),
+      correct_option: typeof q.correct === 'number' ? String.fromCharCode(65 + q.correct) : q.correct,
+      is_correct: isCorrect,
+      difficulty: q.difficulty,
+      concept_tag: q.concept
+    }];
+    setAnswers(updatedAnswers);
 
-  const handleNext = () => {
-    if (currentIdx + 1 >= questions.length || currentIdx + 1 >= TOTAL_QUESTIONS) {
-      // Simulate analysis delay
-      navigate('/student/summary'); // Navigate to result page
+    const totalTarget = q.total_questions || DEFAULT_TOTAL_QUESTIONS;
+
+    if (currentIdx + 1 >= totalTarget) {
+      try {
+        const res = await quizApi.submit(user.student_id, conceptId, updatedAnswers);
+        navigate('/student/diagnostic-result', { state: { results: res.data, concept_id: conceptId } });
+      } catch (err) {
+        console.error('Failed to submit quiz:', err);
+        toast.error('Failed to submit diagnostic assessment to server. Please check connection and try again.');
+      }
     } else {
-      setCurrentIdx(i => i + 1);
-      setSelected(null);
-      setRevealed(false);
-      setFeedback(null);
+      try {
+        setLoading(true);
+        const nextRes = await api.post('/quiz/next', {
+          concept_id: conceptId,
+          last_question_id: q.id,
+          last_was_correct: isCorrect,
+          last_difficulty: q.difficulty,
+          exclude_ids: updatedAnswers.map(a => a.question_id)
+        });
+        
+        if (nextRes.data && nextRes.data.status !== "complete") {
+          setQuestions([...questions, nextRes.data]);
+          setCurrentIdx(i => i + 1);
+          setSelected(null);
+        } else {
+          const res = await quizApi.submit(user.student_id, conceptId, updatedAnswers);
+          navigate('/student/diagnostic-result', { state: { results: res.data, concept_id: conceptId } });
+        }
+      } catch (err) {
+        console.error("Failed to fetch next question, submitting completed answers:", err);
+        try {
+          const res = await quizApi.submit(user.student_id, conceptId, updatedAnswers);
+          navigate('/student/diagnostic-result', { state: { results: res.data, concept_id: conceptId } });
+        } catch (submitErr) {
+          console.error('Failed to submit quiz after next-question error:', submitErr);
+          toast.error('Failed to communicate with server.');
+        }
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
   if (loading) {
-    return <div className="flex justify-center p-12"><div className="spinner"></div></div>;
+    return <div className="screen"><div className="center-card" style={{padding: '40px'}}><div className="spinner"></div></div></div>;
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="screen">
+        <div className="card card-narrow center-card" style={{padding: '40px', textAlign: 'center'}}>
+          <h3>Unable to load quiz questions</h3>
+          <p className="muted">Please make sure the backend server is running and try again.</p>
+          <button className="btn btn-primary" onClick={fetchQuestions}>Retry</button>
+        </div>
+      </div>
+    );
   }
 
   const q = questions[currentIdx];
-  if (!q) return null;
+  const answered = selected !== null;
 
   return (
-    <div className="max-w-[720px] mx-auto animate-fade-in">
+    <div className="screen">
       <Stepper 
         steps={[
           { label: 'Diagnostic' },
@@ -97,90 +134,46 @@ export default function QuizPage() {
         currentStep={0} 
       />
 
-      <div className="card">
-        <div className="flex justify-between items-center mb-8 border-b border-[var(--border)] pb-4">
-          <div className="flex gap-1">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className={`w-3 h-3 rounded-full ${i === 0 ? 'bg-[var(--sky)]' : 'border border-[var(--sky)] bg-transparent'}`} />
+      <div className="card card-narrow diagnostic-card">
+        <div className="diagnostic-head">
+          <p className="eyebrow">Diagnostic Assessment &middot; Question {currentIdx + 1} of {q.total_questions || DEFAULT_TOTAL_QUESTIONS}</p>
+          <div className="difficulty-track">
+            {[1, 2, 3, 4, 5].map(n => (
+              <span key={n} className={`difficulty-pip ${n <= (q?.difficulty || 1) ? 'on' : ''}`}></span>
             ))}
           </div>
-          <div className="text-sm font-bold text-[var(--ink-soft)] flex items-center gap-2">
-            <Clock size={16} /> 00:54
-          </div>
         </div>
-
-        <h2 className="text-2xl mb-8 leading-snug">{q.text}</h2>
-
-        <div className="space-y-3 mb-8">
-          {Object.entries(q.options || {}).map(([k, v]) => {
-            const isSelected = selected === k;
-            let btnClass = "w-full text-left p-4 rounded-[var(--radius-md)] border-2 transition-all flex items-center gap-4 bg-white text-[var(--ink)] ";
-            let iconClass = "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ";
-            
-            if (!revealed) {
-              if (isSelected) {
-                btnClass += "border-[var(--sky)] shadow-[0_4px_12px_rgba(52,87,214,0.1)]";
-                iconClass += "bg-[var(--sky)] text-white";
-              } else {
-                btnClass += "border-[var(--border)] hover:border-[var(--sky-soft)]";
-                iconClass += "bg-[#F2EEE1] text-[var(--ink-soft)]";
-              }
-            } else {
-              if (k === feedback.correct_option) {
-                btnClass += "border-[var(--forest)] bg-[var(--forest-soft)]";
-                iconClass += "bg-[var(--forest)] text-white";
-              } else if (isSelected && !feedback.isCorrect) {
-                btnClass += "border-[var(--redpen)] bg-[var(--redpen-soft)]";
-                iconClass += "bg-[var(--redpen)] text-white";
-              } else {
-                btnClass += "border-[var(--border)] opacity-60";
-                iconClass += "bg-[#F2EEE1] text-[var(--ink-soft)]";
-              }
-            }
-
+        <div className="timer-bar" key={q.id}>
+          <div className="timer-bar-fill"></div>
+        </div>
+        
+        <h2 className="q-text">{q.text}</h2>
+        
+        <div className="option-list">
+          {(Array.isArray(q.options) ? q.options : Object.values(q.options || {})).map((optText, oi) => {
+            const isSelected = selected === oi;
+            const optKey = oi;
             return (
               <button 
-                key={k} 
-                onClick={() => handleSelect(k)}
-                disabled={revealed}
-                className={btnClass}
+                key={optKey}
+                className={`option-btn ${isSelected ? 'selected' : ''}`}
+                onClick={() => handleSelect(optKey)}
               >
-                <div className={iconClass}>{k}</div>
-                <div className="flex-1 font-semibold">{v}</div>
-                {revealed && k === feedback.correct_option && <Check className="text-[var(--forest)]" />}
-                {revealed && isSelected && !feedback.isCorrect && <X className="text-[var(--redpen)]" />}
+                <span className="option-letter">{String.fromCharCode(65 + oi)}</span>
+                {optText}
               </button>
             );
           })}
         </div>
-
-        {revealed && (
-          <div className={`p-4 rounded-[var(--radius-sm)] mb-8 border ${feedback.isCorrect ? 'bg-[var(--forest-soft)] border-[var(--forest)] text-[var(--forest)]' : 'bg-[var(--redpen-soft)] border-[var(--redpen)] text-[var(--redpen)]'}`}>
-            <div className="font-bold mb-1 flex items-center gap-2">
-              {feedback.isCorrect ? <Check size={18} /> : <X size={18} />}
-              {feedback.isCorrect ? 'Correct!' : 'Incorrect'}
-            </div>
-            <div className="text-sm text-[var(--ink)] font-medium">{feedback.explanation}</div>
-          </div>
-        )}
-
-        <div className="flex justify-between items-center">
-          <div className="text-[13px] font-bold text-[var(--ink-soft)] uppercase tracking-wider">
-            {currentIdx + 1} of {TOTAL_QUESTIONS}
-          </div>
-          {!revealed ? (
-            <button 
-              onClick={handleCheck}
-              disabled={!selected || checking}
-              className="btn btn-primary"
-            >
-              Check Answer
-            </button>
-          ) : (
-            <button onClick={handleNext} className="btn btn-primary">
-              {currentIdx + 1 >= TOTAL_QUESTIONS ? 'Finish Diagnostic' : 'Next Question'} <ArrowRight size={16} />
-            </button>
-          )}
+        
+        <div className="diagnostic-foot">
+          <button 
+            className="btn btn-primary" 
+            disabled={!answered} 
+            onClick={handleNext}
+          >
+            {currentIdx + 1 >= (q.total_questions || DEFAULT_TOTAL_QUESTIONS) ? 'Finish diagnostic' : 'Next question'} &rarr;
+          </button>
         </div>
       </div>
     </div>

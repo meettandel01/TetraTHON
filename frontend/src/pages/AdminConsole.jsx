@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Shield, Settings, Database, Server, Upload } from 'lucide-react';
+import SectionTabs from '../components/SectionTabs';
+import { useNavigate } from 'react-router-dom';
 import { adminApi } from '../services/api';
 import toast from 'react-hot-toast';
 
 export default function AdminConsole() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [compliance, setCompliance] = useState(null);
   const [stats, setStats] = useState(null);
+  const [activeTab, setActiveTab] = useState('Dashboard');
 
   useEffect(() => {
     fetchData();
@@ -30,10 +34,14 @@ export default function AdminConsole() {
     }
   };
 
-  const handleImport = async () => {
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
     try {
-      const res = await adminApi.importContent({});
-      toast.success(res.data.message);
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await adminApi.importContent(formData);
+      toast.success(res.data.message || 'Import successful');
       fetchData();
     } catch (err) {
       toast.error('Failed to import content');
@@ -51,10 +59,21 @@ export default function AdminConsole() {
           <div className="text-xs font-bold uppercase tracking-wider text-[var(--ink-soft)] mb-2">Admin Console</div>
           <h1 className="text-3xl font-serif text-[var(--ink)] tracking-tight">System Status</h1>
         </div>
-        <button onClick={handleImport} className="flex items-center gap-2 bg-[var(--ink)] text-[var(--paper)] px-4 py-2 rounded-full font-bold text-sm hover:bg-[#2B3350]">
+        <label className="flex items-center gap-2 bg-[var(--ink)] text-[var(--paper)] px-4 py-2 rounded-full font-bold text-sm hover:bg-[#2B3350] cursor-pointer">
           <Upload size={16} /> Import New Content
-        </button>
+          <input type="file" className="hidden" onChange={handleImport} />
+        </label>
       </div>
+
+      <SectionTabs 
+        sections={['Dashboard', 'Import Tool', 'Content Repo', 'Compliance']} 
+        activeSection={activeTab} 
+        onChange={(tab) => {
+          if (tab === 'Import Tool') navigate('/admin/import');
+          if (tab === 'Content Repo') navigate('/admin/content');
+          if (tab === 'Compliance') navigate('/admin/compliance');
+        }} 
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-[var(--card)] border border-[var(--border)] shadow-[var(--shadow-sm)] rounded-[var(--r-lg)] p-6 text-center">
@@ -69,7 +88,7 @@ export default function AdminConsole() {
         </div>
         <div className="bg-[var(--card)] border border-[var(--border)] shadow-[var(--shadow-sm)] rounded-[var(--r-lg)] p-6 text-center">
           <Server size={24} className="mx-auto text-[#8C5C13] mb-2" />
-          <div className="font-bold text-[#8C5C13] text-lg mb-1">99.9%</div>
+          <div className="font-bold text-[#8C5C13] text-lg mb-1" title={stats.uptime ? '' : 'Monitoring not configured'}>{stats.uptime || 'N/A'}</div>
           <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">Uptime</div>
         </div>
         <div className="bg-[var(--card)] border border-[var(--border)] shadow-[var(--shadow-sm)] rounded-[var(--r-lg)] p-6 text-center">

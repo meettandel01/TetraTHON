@@ -1,21 +1,67 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Stepper from '../components/Stepper';
-import confetti from 'canvas-confetti';
-import { ArrowRight, Star, Target, Zap, TrendingUp } from 'lucide-react';
-import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import api, { dashboardApi } from '../services/api';
+import toast from 'react-hot-toast';
 
 export default function ResultPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const location = useLocation();
+  const practiceResults = location.state;
   
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(null);
+
   useEffect(() => {
-    confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#047857', '#F0A23A', '#D93A3A', '#3457D6'] });
-  }, []);
+    if (!user) return;
+    loadStats();
+  }, [user]);
+
+  const loadStats = async () => {
+    try {
+      setLoading(true);
+      const [xpRes, dashRes] = await Promise.all([
+        api.get(`/gamification/${user.student_id}`),
+        dashboardApi.get(user.student_id)
+      ]);
+      
+      const masteryMap = {};
+      dashRes.data.concept_graph.nodes.forEach(n => {
+        masteryMap[n.id] = n.mastery !== null ? (n.mastery / 100) : 0;
+      });
+
+      setStats({
+        xp: xpRes.data.xp || 0,
+        streak: xpRes.data.streak || 0,
+        mastery: masteryMap,
+        badgesEarned: xpRes.data.badges ? xpRes.data.badges.length : 0,
+      });
+    } catch (err) {
+      console.error(err);
+      setStats({ xp: 0, streak: 0, mastery: {}, badgesEarned: 0 });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const endSession = () => {
+    toast.success('Session saved. Great progress today!');
+    navigate('/student/dashboard');
+  };
+
+  if (loading || !stats) {
+    return <div className="screen"><div className="center-card" style={{padding: '40px'}}><div className="spinner"></div></div></div>;
+  }
+
+  const practiceScore = practiceResults?.practiceScore ?? null;
+  const practiceCorrect = practiceResults?.correctCount ?? 0;
+  const practiceTotal = practiceResults?.totalAnswered ?? 0;
+  const streak = stats.streak;
 
   return (
-    <div className="max-w-[720px] mx-auto animate-fade-in">
+    <div className="screen">
       <Stepper 
         steps={[
           { label: 'Diagnostic' },
@@ -26,61 +72,45 @@ export default function ResultPage() {
         ]} 
         currentStep={4} 
       />
-
-      <div className="text-center mb-10">
-        <div className="w-20 h-20 bg-[var(--forest-soft)] text-[var(--forest)] rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
-          🎉
+      <div className="card card-narrow center-card">
+        <p className="eyebrow">Session complete</p>
+        <h2>Nice work, {user?.name?.split(' ')[0]}!</h2>
+        <div className="summary-stats">
+          <div><span className="mono big">{practiceScore !== null ? `${Math.round(practiceScore * 100)}%` : '—'}</span><br/><span className="muted small">practice score ({practiceCorrect}/{practiceTotal})</span></div>
+          <div><span className="mono big">{stats.xp}</span><br/><span className="muted small">Total XP</span></div>
+          <div><span className="mono big">{streak}</span><br/><span className="muted small">day streak</span></div>
         </div>
-        <h1 className="text-4xl font-serif text-[var(--ink)] mb-2">Session Complete!</h1>
-        <p className="text-[var(--ink-soft)] font-medium">Great work, {user?.name?.split(' ')[0]}. You've made solid progress today.</p>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="card text-center p-6">
-          <div className="text-[var(--ink-faint)] text-[11px] font-bold uppercase tracking-wider mb-2 flex items-center justify-center gap-1"><Target size={14} /> Score</div>
-          <div className="text-3xl font-bold text-[var(--ink)]">4/5</div>
-        </div>
-        <div className="card text-center p-6">
-          <div className="text-[var(--ink-faint)] text-[11px] font-bold uppercase tracking-wider mb-2 flex items-center justify-center gap-1"><Star size={14} /> XP Earned</div>
-          <div className="text-3xl font-bold text-[var(--marigold-dark)]">+60</div>
-        </div>
-        <div className="card text-center p-6">
-          <div className="text-[var(--ink-faint)] text-[11px] font-bold uppercase tracking-wider mb-2 flex items-center justify-center gap-1"><Zap size={14} /> Streak</div>
-          <div className="text-3xl font-bold text-[var(--sky)]">4 Days</div>
-        </div>
-        <div className="card text-center p-6">
-          <div className="text-[var(--ink-faint)] text-[11px] font-bold uppercase tracking-wider mb-2 flex items-center justify-center gap-1"><TrendingUp size={14} /> Mastery</div>
-          <div className="text-3xl font-bold text-[var(--forest)]">+12%</div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="card p-6 bg-gradient-to-br from-[var(--ink)] to-[var(--ink-2)] text-white border-none flex items-center gap-6">
-          <div className="w-16 h-16 rounded-full bg-[var(--marigold-soft)] flex items-center justify-center text-3xl shrink-0 shadow-[0_0_20px_rgba(240,162,58,0.4)]">
-            🌟
+        {practiceScore !== null && practiceScore >= 0.8 && (
+          <div className="badge-unlock">
+            <div className="badge-unlock-icon">✎</div>
+            <div>
+              <strong>Keep it up!</strong>
+              <p className="muted small">Your practice questions have been logged.</p>
+            </div>
           </div>
-          <div>
-            <div className="text-[var(--marigold-soft)] text-[11px] font-bold uppercase tracking-wider mb-1">Badge Unlocked</div>
-            <h3 className="text-white text-xl mb-1">Problem Solver</h3>
-            <p className="text-[#C7C4E0] text-sm">Answered 10 practice questions correctly across sessions.</p>
-          </div>
+        )}
+        <p className="eyebrow" style={{ marginTop: '20px' }}>Mastery updated</p>
+        
+        {/* Compact concept graph row */}
+        <div className="mastery-row" style={{ justifyContent: 'center' }}>
+          {Object.entries(stats.mastery).filter(([_, v]) => v > 0).slice(0, 5).map(([id, score]) => {
+            const shortName = id.length > 15 ? id.substring(0, 12) + '...' : id;
+            const hue = Math.max(0, Math.min(1, score)) * 122;
+            const color = `hsl(${hue.toFixed(0)}, 58%, 42%)`;
+            return (
+              <div className="mastery-pip" title={`${shortName}: ${Math.round(score * 100)}%`} key={id}>
+                <div className="mastery-pip-ring" style={{ '--v': `${score * 100}%`, '--c': color }}></div>
+                <span>{shortName}</span>
+              </div>
+            );
+          })}
         </div>
 
-        <div className="card p-6 border-[var(--forest)] bg-[var(--forest-soft)] flex flex-col justify-center">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 rounded-full bg-[var(--forest)] text-white flex items-center justify-center font-bold">↑</div>
-            <div className="font-bold text-[var(--forest)] text-lg">Concept Mastered!</div>
-          </div>
-          <p className="text-[var(--forest)] font-medium text-sm pl-11">
-            "Variable & Constant Identification" moved from <strong>Needs Work</strong> to <strong>Mastered</strong>.
-          </p>
+        <p className="muted small center">Your teacher's dashboard has already refreshed with this activity.</p>
+        <div className="summary-actions">
+          <button className="btn btn-ghost" onClick={endSession}>Back to dashboard</button>
+          <button className="btn btn-primary" onClick={() => navigate('/student/learning-path')}>View learning path &rarr;</button>
         </div>
-      </div>
-
-      <div className="flex justify-center">
-        <button onClick={() => navigate('/student/dashboard')} className="btn btn-primary px-8 py-3 text-lg">
-          Back to Dashboard
-        </button>
       </div>
     </div>
   );

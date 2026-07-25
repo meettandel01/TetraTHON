@@ -7,20 +7,32 @@ import AppShell from './components/AppShell';
 // Pages
 import LoginPage from './pages/LoginPage';
 // Student Pages
+import ProfilePage from './pages/ProfilePage';
 import DashboardPage from './pages/DashboardPage';
+import SessionSetupPage from './pages/SessionSetupPage';
 import QuizPage from './pages/QuizPage'; // DiagnosticPage
+import DiagnosticResultPage from './pages/DiagnosticResultPage';
 import LearningPathPage from './pages/LearningPathPage';
 import LessonPage from './pages/LessonPage';
 import PracticePage from './pages/PracticePage';
 import DoubtPage from './pages/DoubtPage';
 import ResultPage from './pages/ResultPage'; // SessionSummary
+import ProgressPage from './pages/ProgressPage';
 import ReportCardPage from './pages/ReportCardPage';
 // Teacher Pages
 import TeacherDashboard from './pages/TeacherDashboard';
+import HeatmapPage from './pages/HeatmapPage';
+import ItemAnalysisPage from './pages/ItemAnalysisPage';
 import EscalationQueuePage from './pages/EscalationQueuePage';
 import RosterPage from './pages/RosterPage';
 import ParentOverview from './pages/ParentOverview';
+import ParentDigestPage from './pages/ParentDigestPage';
+import ParentAlertsPage from './pages/ParentAlertsPage';
+import ParentSettingsPage from './pages/ParentSettingsPage';
 import AdminConsole from './pages/AdminConsole';
+import AdminImportPage from './pages/AdminImportPage';
+import AdminContentPage from './pages/AdminContentPage';
+import AdminCompliancePage from './pages/AdminCompliancePage';
 
 // Basic protected route wrapper
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -45,36 +57,48 @@ export default function App() {
             {/* Redirect root based on role */}
             <Route index element={<Navigate to="/student/dashboard" replace />} />
             
+            <Route path="profile" element={<ProfilePage />} />
+
             {/* Student Routes */}
             <Route path="student">
               <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="setup" element={<SessionSetupPage />} />
               <Route path="diagnostic" element={<QuizPage />} />
+              <Route path="diagnostic-result" element={<DiagnosticResultPage />} />
               <Route path="learning-path" element={<LearningPathPage />} />
               <Route path="lesson" element={<LessonPage />} />
               <Route path="practice" element={<PracticePage />} />
               <Route path="doubt" element={<DoubtPage />} />
               <Route path="summary" element={<ResultPage />} />
+              <Route path="progress" element={<ProgressPage />} />
               <Route path="report-card" element={<ReportCardPage />} />
             </Route>
             
             {/* Teacher Routes */}
             <Route path="teacher">
               <Route path="dashboard" element={<TeacherDashboard />} />
-              <Route path="heatmap" element={<div className="p-8">Mastery Heatmap (WIP)</div>} />
-              <Route path="item-analysis" element={<div className="p-8">Item Analysis (WIP)</div>} />
+              <Route path="heatmap" element={<HeatmapPage />} />
+              <Route path="item-analysis" element={<ItemAnalysisPage />} />
               <Route path="escalations" element={<EscalationQueuePage />} />
               <Route path="roster" element={<RosterPage />} />
             </Route>
 
             {/* Parent Routes */}
             <Route path="parent">
+              <Route index element={<ParentOverview />} />
               <Route path="dashboard" element={<ParentOverview />} />
+              <Route path="overview" element={<ParentOverview />} />
+              <Route path="digest" element={<ParentDigestPage />} />
+              <Route path="alerts" element={<ParentAlertsPage />} />
+              <Route path="settings" element={<ParentSettingsPage />} />
             </Route>
 
             {/* Admin Routes */}
             <Route path="admin">
-              <Route path="content" element={<div className="p-8">Content Authoring (WIP)</div>} />
-              <Route path="compliance" element={<div className="p-8">Compliance (WIP)</div>} />
+              <Route path="dashboard" element={<AdminConsole />} />
+              <Route path="import" element={<AdminImportPage />} />
+              <Route path="content" element={<AdminContentPage />} />
+              <Route path="compliance" element={<AdminCompliancePage />} />
             </Route>
           </Route>
           

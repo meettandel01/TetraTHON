@@ -45,15 +45,26 @@ def get_dashboard(student_id: int, db: Session = Depends(get_db), current_user: 
         if attempt.is_correct:
             concept_performance[concept]["correct"] += 1
 
-    # Build the full concept graph (all concepts + student mastery)
+    # Build the full concept graph with chapters and topics
+    from database import Chapter
+    all_chapters = db.query(Chapter).all()
     all_concepts = db.query(Concept).all()
     concept_graph = {"nodes": [], "edges": []}
     
-    # Map mastery by concept id for O(1) lookup
+    chapter_map = {ch.id: ch.name for ch in all_chapters}
+    
+    for ch in all_chapters:
+        concept_graph["nodes"].append({
+            "id": f"ch_{ch.id}",
+            "name": ch.name,
+            "parent_id": None,
+            "mastery": None,
+            "status": "chapter"
+        })
+    
     mastery_by_concept = {m.concept_id: m for m in masteries}
     
     for c in all_concepts:
-        # Determine status
         status = "unattempted"
         pct = None
         if c.id in mastery_by_concept:
@@ -61,23 +72,19 @@ def get_dashboard(student_id: int, db: Session = Depends(get_db), current_user: 
             pct = round(m.mastery_level * 100, 1)
             status = "weak" if m.is_weak else "mastered"
         
-        # Override for root/parent categories that have no direct practice
-        if c.parent_concept is None or c.name in ["Algebra", "Arithmetic"]:
-            status = "root"
-
+        parent_node_id = f"ch_{c.chapter_id}" if c.chapter_id in chapter_map else None
+        
         concept_graph["nodes"].append({
-            "id": c.name,  # Using name as ID for frontend compatibility
+            "id": str(c.id),
             "name": c.name,
-            "parent_id": c.parent_concept,
+            "parent_id": parent_node_id,
             "mastery": pct,
             "status": status
         })
-        
-        # Add edge if it has a parent
-        if c.parent_concept:
+        if parent_node_id:
             concept_graph["edges"].append({
-                "source": c.parent_concept,
-                "target": c.name
+                "source": parent_node_id,
+                "target": str(c.id)
             })
 
     logger.info(f"Dashboard fetched for student {student_id}")
@@ -85,10 +92,13 @@ def get_dashboard(student_id: int, db: Session = Depends(get_db), current_user: 
     return {
         "student": {
             "id": student.id,
-            "name": student.name,
+            "name": student.user.name if student.user else "Unknown",
             "grade": student.grade,
             "level": student.level,
             "mastery_score": round(student.mastery_score, 1),
+            "xp": student.xp,
+            "streak": student.streak,
+            "archetype": student.archetype,
         },
         "stats": {
             "sessions_total": len(sessions),
@@ -99,6 +109,7 @@ def get_dashboard(student_id: int, db: Session = Depends(get_db), current_user: 
         },
         "concept_performance": concept_performance,
         "concept_graph": concept_graph,
+        "chapters": [{"id": ch.id, "name": ch.name, "number": ch.chapter_number or ch.id} for ch in all_chapters],
         "recent_doubts": [
             {
                 "question": d.question_text[:80] + "...",

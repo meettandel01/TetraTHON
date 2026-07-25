@@ -1,31 +1,47 @@
 import React from 'react';
 
-// Hardcoded DAG matching the mock for this demo, usually generated algorithmically.
-const nodes = [
-  { id: 'c1', label: 'Integers', status: 'mastered', score: 92, x: 50, y: 150 },
-  { id: 'c2', label: 'Variables', status: 'mastered', score: 85, x: 250, y: 80 },
-  { id: 'c3', label: 'Simplify', status: 'mastered', score: 88, x: 250, y: 220 },
-  { id: 'c4', label: 'One-Step', status: 'weak', score: 40, x: 450, y: 150, current: true },
-  { id: 'c5', label: 'Two-Step', status: 'locked', score: 0, x: 650, y: 80 },
-  { id: 'c6', label: 'Both Sides', status: 'locked', score: 0, x: 650, y: 220 },
-  { id: 'c7', label: 'Word Problems', status: 'locked', score: 0, x: 850, y: 150 },
-];
+export default function ConceptGraph({ data = null, masteryMap = null, currentId = null, cycleDemo = false }) {
+  const baseNodes = (data && data.nodes && data.nodes.length > 0) ? data.nodes : [];
+  const graphEdges = (data && data.edges && data.edges.length > 0) ? data.edges : [];
 
-const edges = [
-  { source: 'c1', target: 'c2' },
-  { source: 'c1', target: 'c3' },
-  { source: 'c2', target: 'c4' },
-  { source: 'c3', target: 'c4' },
-  { source: 'c4', target: 'c5' },
-  { source: 'c4', target: 'c6' },
-  { source: 'c5', target: 'c7' },
-  { source: 'c6', target: 'c7' },
-];
+  if (!baseNodes || baseNodes.length === 0) {
+    return (
+      <div className="muted small italic" style={{ padding: '40px 20px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '8px' }}>
+        No concept data available yet. Start sessions or complete assessments to populate graph.
+      </div>
+    );
+  }
 
-export default function ConceptGraph({ data = null }) {
-  // Use data if provided, else mock
-  const graphNodes = data?.nodes || nodes;
-  const graphEdges = data?.edges || edges;
+  const graphNodes = baseNodes.map((n, idx) => {
+    let score = n.score !== undefined ? n.score : (n.mastery !== null && n.mastery !== undefined ? Math.round(n.mastery) : 0);
+    let status = n.status || 'locked';
+    let label = n.label || n.name || String(n.id);
+    let isCurrent = currentId ? (n.id === currentId || n.name === currentId || String(n.id) === String(currentId)) : n.current;
+
+    if (masteryMap && (masteryMap[n.id] !== undefined || masteryMap[n.name] !== undefined || masteryMap[label] !== undefined)) {
+      const val = masteryMap[n.id] !== undefined ? masteryMap[n.id] : (masteryMap[n.name] !== undefined ? masteryMap[n.name] : masteryMap[label]);
+      score = Math.round(val * (val <= 1 ? 100 : 1));
+      if (score >= 80) status = 'mastered';
+      else if (score >= 40) status = 'weak';
+      else status = 'locked';
+    }
+
+    let x = n.x;
+    let y = n.y;
+    if (x === undefined || y === undefined) {
+      if (status === 'chapter') {
+        x = 120 + (idx % 4) * 200;
+        y = 50;
+      } else {
+        const col = idx % 5;
+        const row = Math.floor(idx / 5);
+        x = 100 + col * 170;
+        y = 150 + row * 100;
+      }
+    }
+
+    return { ...n, label, score, status, current: isCurrent, x, y };
+  });
 
   return (
     <div className="w-full overflow-x-auto">
@@ -48,6 +64,19 @@ export default function ConceptGraph({ data = null }) {
             
             const isLocked = t.status === 'locked';
             
+            if (e.isSubEdge) {
+              return (
+                <line
+                  key={i}
+                  x1={s.x} y1={s.y} x2={t.x} y2={t.y}
+                  stroke="var(--border)"
+                  strokeWidth="1.5"
+                  strokeDasharray="2 2"
+                  opacity={0.6}
+                />
+              );
+            }
+
             return (
               <path 
                 key={i}
@@ -82,23 +111,26 @@ export default function ConceptGraph({ data = null }) {
               textFill = "var(--ink-faint)";
             }
 
+            const radius = n.isSubConcept ? 12 : 16;
+            const yOffset = n.isSubConcept ? 3 : 4;
+
             return (
               <g key={n.id} transform={`translate(${n.x}, ${n.y})`} className="cursor-pointer transition-transform hover:scale-110">
                 {n.current && (
-                  <circle r="24" fill="none" stroke="var(--marigold)" strokeWidth="2" strokeDasharray="4 4">
+                  <circle r={radius + 8} fill="none" stroke="var(--marigold)" strokeWidth="2" strokeDasharray="4 4">
                     <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="10s" repeatCount="indefinite"/>
                   </circle>
                 )}
                 
-                <circle r="16" fill={fill} stroke={stroke} strokeWidth="2" />
+                <circle r={radius} fill={fill} stroke={stroke} strokeWidth="2" />
                 
                 {n.status === 'locked' ? (
-                  <text y="4" textAnchor="middle" fill={textFill} fontSize="10" fontFamily="FontAwesome">🔒</text>
+                  <text y={yOffset} textAnchor="middle" fill={textFill} fontSize={n.isSubConcept ? "8" : "10"} fontFamily="FontAwesome">🔒</text>
                 ) : (
-                  <text y="4" textAnchor="middle" fill={textFill} fontSize="11" fontWeight="bold" fontFamily="IBM Plex Mono">{n.score}</text>
+                  <text y={yOffset} textAnchor="middle" fill={textFill} fontSize={n.isSubConcept ? "9" : "11"} fontWeight="bold" fontFamily="IBM Plex Mono">{n.score}</text>
                 )}
                 
-                <text y="32" textAnchor="middle" fill={n.status==='locked' ? 'var(--ink-faint)' : 'var(--ink)'} fontSize="12" fontWeight="600" fontFamily="Manrope">{n.label}</text>
+                <text y={radius + 16} textAnchor="middle" fill={n.status==='locked' ? 'var(--ink-faint)' : 'var(--ink)'} fontSize={n.isSubConcept ? "10" : "12"} fontWeight="600" fontFamily="Manrope">{n.label}</text>
               </g>
             );
           })}

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from database import get_db, User, LoginAttempt
 
 # Security Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "tetra-super-secret-key-12345")
+SECRET_KEY = os.getenv("SECRET_KEY", "tetra-super-secret-key-123456789")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
@@ -39,9 +39,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: int = payload.get("sub")
-        if user_id is None:
+        user_id_str = payload.get("sub")
+        if user_id_str is None:
             raise credentials_exception
+        user_id = int(user_id_str)
     except jwt.PyJWTError:
         raise credentials_exception
     user = db.query(User).filter(User.id == user_id).first()

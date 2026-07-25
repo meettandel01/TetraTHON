@@ -28,10 +28,18 @@ api.interceptors.response.use(
     return Promise.reject(new Error(msg))
   }
 )
+// ─── Auth API ──────────────────────────────────────────────────────────────
+export const authApi = {
+  loginPin: (student_id, pin) => api.post('/auth/login/pin', { student_id, pin }),
+  loginSso: (role, provider) => api.post('/auth/login/sso', { role, provider }),
+  loginOtp: (parent_id, otp) => api.post('/auth/login/otp', { parent_id, otp }),
+  getMe: () => api.get('/auth/me'),
+  logout: () => api.post('/auth/logout'),
+}
 
 // ─── Student API ───────────────────────────────────────────────────────────
 export const studentApi = {
-  create: (name, grade = '9') => api.post('/students/', { name, grade }),
+  create: (name, grade, section, level) => api.post('/students/', { name, grade, section, level }),
   get: (id) => api.get(`/students/${id}`),
   updateLevel: (id, level) =>
     api.patch(`/students/${id}/level?level=${encodeURIComponent(level)}`),
@@ -42,13 +50,13 @@ export const quizApi = {
   getQuestions: () => api.get('/quiz/questions'),
   checkAnswer: (questionId, selected) =>
     api.get(`/quiz/check-answer/${questionId}/${selected}`),
-  submit: (student_id, answers) =>
-    api.post('/quiz/submit', { student_id, answers }),
-}
+  submit: (student_id, concept_id, answers) =>
+    api.post('/quiz/submit', { student_id, concept_id, answers }),
+};
 
 // ─── Lessons API ───────────────────────────────────────────────────────────
 export const lessonsApi = {
-  getByLevel: (level) => api.get(`/lessons/${level}`),
+  getByLevel: (level, conceptId = 1) => api.get(`/lessons/${encodeURIComponent(level)}?concept_id=${conceptId}`),
   startSession: (student_id, lesson_id) =>
     api.post('/lessons/session/start', { student_id, lesson_id }),
   completeSession: (student_id, lesson_id, time_spent_seconds) =>
@@ -70,6 +78,7 @@ export const doubtsApi = {
     })
   },
   getHistory: (student_id) => api.get(`/doubts/history/${student_id}`),
+  submitFeedback: (doubt_id, upvote) => api.post(`/doubts/${doubt_id}/feedback`, { upvote }),
 }
 
 // ─── Dashboard API ─────────────────────────────────────────────────────────
@@ -86,8 +95,11 @@ export const conceptsApi = {
 
 // ─── Teacher API ───────────────────────────────────────────────────────────
 export const teacherApi = {
-  getDashboard: (section = '8-A') => api.get(`/teacher/dashboard?section=${section}`),
-  getRoster: (section = '8-A') => api.get(`/teacher/roster?section=${section}`),
+  getSections: () => api.get('/teacher/sections'),
+  getDashboard: (section) => api.get(`/teacher/dashboard?section=${encodeURIComponent(section)}`),
+  getRoster: (section) => api.get(`/teacher/roster${section ? `?section=${encodeURIComponent(section)}` : ''}`),
+  getHeatmap: (section) => api.get(`/teacher/heatmap?section=${encodeURIComponent(section)}`),
+  getItemAnalysis: () => api.get(`/teacher/item-analysis`),
 }
 
 // ─── Parent API ────────────────────────────────────────────────────────────
@@ -95,6 +107,8 @@ export const parentApi = {
   getOverview: (childId) => api.get(`/parent/overview/${childId}`),
   getDigest: (childId) => api.get(`/parent/digest/${childId}`),
   getAlerts: (childId) => api.get(`/parent/alerts/${childId}`),
+  getSettings: (childId) => api.get(`/parent/settings/${childId}`),
+  updateSettings: (childId, data) => api.post(`/parent/settings/${childId}`, data),
 }
 
 // ─── Admin API ─────────────────────────────────────────────────────────────
@@ -102,6 +116,10 @@ export const adminApi = {
   getCompliance: () => api.get('/admin/compliance'),
   getContentStats: () => api.get('/admin/content-stats'),
   importContent: (data) => api.post('/admin/import-content', data),
+  getContentItems: () => api.get('/admin/content-items'),
+  createContentItem: (data) => api.post('/admin/content-items', data),
+  updateContentItem: (id, data) => api.put(`/admin/content-items/${id}`, data),
+  deleteContentItem: (id) => api.delete(`/admin/content-items/${id}`),
 }
 
 // ─── Escalations API ───────────────────────────────────────────────────────
@@ -109,6 +127,16 @@ export const escalationsApi = {
   getEscalations: (status = 'pending') => api.get(`/escalations/?status=${status}`),
   claimEscalation: (id) => api.post(`/escalations/${id}/claim`),
   respondEscalation: (id, responseText) => api.post(`/escalations/${id}/respond`, { response_text: responseText }),
+  regenerateDraft: (id) => api.post(`/escalations/${id}/regenerate-draft`),
+  createEscalation: (studentId, doubtText, conceptId = null, aiConfidence = null) =>
+    api.post('/escalations/', { student_id: studentId, doubt_text: doubtText, concept_id: conceptId, ai_confidence: aiConfidence }),
+}
+
+// ─── Gamification API ──────────────────────────────────────────────────────
+export const gamificationApi = {
+  getProfile: (studentId) => api.get(`/gamification/${studentId}`),
+  getBadges: (studentId) => api.get(`/gamification/badges/${studentId}`),
+  getLeaderboard: () => api.get('/gamification/leaderboard'),
 }
 
 // ─── Report Card API ───────────────────────────────────────────────────────

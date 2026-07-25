@@ -14,7 +14,10 @@ import {
   Users,
   Shield,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  Bell,
+  Menu,
+  X
 } from 'lucide-react';
 
 const getNavItems = (role, unreadEscalations = 0) => {
@@ -56,17 +59,18 @@ export default function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false); // keep minimal tailwind for mobile nav overlay if needed
 
   if (!user) return null;
 
   const navItems = getNavItems(user.role);
   const scopeLine = user.role === 'admin' 
     ? 'Multi-board, multi-subject console'
-    : 'NCERT / CBSE · Linear Equations in One Variable';
+    : (user.role === 'teacher' ? `${user.subject || 'Mathematics'} Curriculum Scope` : `Grade ${user.grade || '8'} · Active Scope`);
 
   const getSubLabel = () => {
-    if (user.role === 'student') return `Class 8 · Sec ${user.section || 'A'}`;
-    if (user.role === 'teacher') return 'Mathematics Teacher';
+    if (user.role === 'student') return `Class ${user.grade || '8'} · Sec ${user.section || 'A'} · ${user.level || 'Foundational'}`;
+    if (user.role === 'teacher') return `${user.subject || 'Mathematics'} Teacher`;
     if (user.role === 'admin') return 'IT & Curriculum Admin';
     if (user.role === 'parent') return 'Parent / Guardian';
     return '';
@@ -83,77 +87,68 @@ export default function AppShell() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[var(--paper)] text-[var(--ink)]">
-      <header className="h-[58px] flex-none flex items-center justify-between px-5 border-b border-[var(--border)] bg-[var(--card)] sticky top-0 z-20">
-        <div className="flex items-center gap-2 text-[var(--ink)]">
-          <svg viewBox="0 0 48 48" className="w-6 h-6 text-[var(--marigold)] fill-current">
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="topbar-brand">
+          <svg viewBox="0 0 48 48" className="brand-logo-sm brand-logo">
             <circle cx="24" cy="10" r="6"/><circle cx="10" cy="34" r="6"/><circle cx="38" cy="34" r="6"/>
             <path d="M20 14 L13 29 M28 14 L35 29 M16 34 H32" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
           </svg>
-          <span className="font-serif font-bold text-[19px] tracking-tight">Sahaay</span>
-          <span className="bg-[var(--rani-soft)] text-[#A31856] text-[11px] font-bold px-2 py-0.5 rounded-full ml-1.5">Product Demo</span>
+          <span className="brand-word-sm brand-word">Sahaay</span>
         </div>
         
-        <div className="flex items-center gap-2.5 relative">
-          <button 
-            className="flex items-center gap-2 bg-transparent border border-transparent rounded-full py-1 pr-2 pl-1 hover:border-[var(--border)]"
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
-            <div className="w-[34px] h-[34px] rounded-full bg-[var(--sky)] text-white font-bold flex items-center justify-center text-[13px]">
-              {user.name.substring(0, 2).toUpperCase()}
+        <div className="topbar-right">
+          <div className="bell-wrap hidden sm:block" style={{ display: 'block', marginRight: '10px' }}>
+            <Bell size={20} className="muted" />
+          </div>
+
+          <button className="user-chip" onClick={() => setMenuOpen(!menuOpen)}>
+            <div className="avatar" style={{'--size': '28px'}}>{user.name.substring(0, 2).toUpperCase()}</div>
+            <div className="user-chip-text hidden sm:block">
+              <div><strong>{user.name.split(' ')[0]}</strong></div>
+              <div className="muted small">{getSubLabel()}</div>
             </div>
-            <div className="text-left leading-tight">
-              <div className="text-[12.5px] font-bold">{user.name}</div>
-              <div className="text-[11px] text-[var(--ink-faint)]">{getSubLabel()}</div>
-            </div>
-            <ChevronDown size={14} className="text-[var(--ink-faint)] ml-1" />
+            <ChevronDown size={14} className="chevron" />
           </button>
           
           {menuOpen && (
-            <div className="absolute right-0 top-12 bg-[var(--card)] border border-[var(--border)] rounded-[var(--radius-md)] shadow-lg overflow-hidden w-[170px] py-1">
-              <button className="w-full text-left px-4 py-2.5 text-[13.5px] hover:bg-[var(--paper)] flex items-center gap-2" onClick={() => { setMenuOpen(false); navigate('/login'); }}>
-                Switch profile
-              </button>
-              <button className="w-full text-left px-4 py-2.5 text-[13.5px] hover:bg-[var(--paper)] flex items-center gap-2 text-[var(--redpen)]" onClick={handleLogout}>
-                <LogOut size={14} /> Log out
-              </button>
-            </div>
+            <>
+              <div style={{position: 'fixed', inset: 0, zIndex: 10}} onClick={() => setMenuOpen(false)}></div>
+              <div className="user-menu">
+                <button onClick={() => { setMenuOpen(false); navigate('/profile'); }}>
+                  Profile Settings
+                </button>
+                <button style={{color: 'var(--redpen)'}} onClick={handleLogout}>
+                  Log out
+                </button>
+              </div>
+            </>
           )}
         </div>
       </header>
       
-      <div className="flex-1 flex min-h-0">
-        <nav className="w-[236px] flex-none border-r border-[var(--border)] bg-[var(--card)] flex flex-col px-3 py-4 hidden md:flex">
-          {navItems.map(item => (
-            <button 
-              key={item.id}
-              onClick={() => navigate(item.path)}
-              className={`flex items-center gap-2.5 w-full text-left px-3 py-2.5 rounded-[var(--radius-sm)] font-semibold text-[13.5px] mb-0.5 transition-colors ${
-                location.pathname.startsWith(item.path) 
-                  ? 'bg-[var(--ink)] text-[var(--paper)]' 
-                  : 'bg-transparent border-none text-[var(--ink-soft)] hover:bg-[#F2EEE1] hover:text-[var(--ink)]'
-              }`}
-            >
-              <item.icon size={18} />
-              <span>{item.label}</span>
-              {item.badge ? (
-                <span className="bg-[var(--redpen)] text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">
-                  {item.badge}
-                </span>
-              ) : null}
-            </button>
-          ))}
+      <div className="app-body">
+        <nav className="sidebar hidden md:flex">
+          {navItems.map(item => {
+            const isActive = location.pathname.startsWith(item.path);
+            return (
+              <button 
+                key={item.id}
+                onClick={() => navigate(item.path)}
+                className={`sidebar-link ${isActive ? 'active' : ''}`}
+              >
+                <item.icon className="nav-icon" />
+                {item.label}
+                {item.badge ? <span className="nav-count">{item.badge}</span> : null}
+              </button>
+            );
+          })}
           
-          <div className="flex-1"></div>
-          
-          <div className="border-t border-[var(--border)] pt-3 text-[11.5px] text-[var(--ink-faint)]">
-            <p className="mb-0.5">Demo scope</p>
-            <p className="text-[var(--ink-soft)] font-semibold">{scopeLine}</p>
-          </div>
+          <div className="sidebar-spacer"></div>
         </nav>
         
-        <main className="flex-1 overflow-y-auto p-6 md:p-8 pb-16">
-          <Outlet />
+        <main className="main">
+           <Outlet />
         </main>
       </div>
     </div>

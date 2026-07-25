@@ -1,8 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Target, Zap, Clock, ChevronRight, Play } from 'lucide-react';
-import api from '../services/api';
+import api, { dashboardApi } from '../services/api';
+
+
+
+function pct(v){ return Math.round(v*100) + '%'; }
+function masteryColor(score){
+  const hue = Math.max(0, Math.min(1, score)) * 122; // 0=red 122=green
+  return `hsl(${hue.toFixed(0)}, 58%, 42%)`;
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -18,127 +25,122 @@ export default function DashboardPage() {
   const loadStats = async () => {
     try {
       setLoading(true);
-      const xpRes = await api.get(`/gamification/${user.student_id}`);
+      const [xpRes, dashRes] = await Promise.all([
+        api.get(`/gamification/${user.student_id}`),
+        dashboardApi.get(user.student_id)
+      ]);
       
+      const masteryMap = {};
+      dashRes.data.concept_graph.nodes.forEach(n => {
+        masteryMap[n.id] = n.mastery !== null ? (n.mastery / 100) : 0;
+      });
+
+      const hasActiveSession = dashRes.data.stats.sessions_total > dashRes.data.stats.sessions_completed;
+
+      const concepts = dashRes.data.concept_graph.nodes
+        .filter(n => n.status !== 'chapter' && !String(n.id).startsWith('ch_'))
+        .map(n => ({
+          id: n.id,
+          short: n.label || n.id,
+          name: n.name || n.label || n.id
+        }));
+
       setStats({
-        xp: xpRes.data.xp,
-        level: xpRes.data.level,
-        streak: 4 // Mocked for now
+        xp: xpRes.data.xp || 0,
+        daily_xp_cap: xpRes.data.daily_xp_cap || 500,
+        level: dashRes.data.student.level || null,
+        streak: xpRes.data.streak || 0,
+        mastery: masteryMap,
+        badgesEarned: xpRes.data.badges ? xpRes.data.badges.length : 0,
+        resume: hasActiveSession,
+        concepts: concepts
       });
     } catch (err) {
       console.error(err);
+      setStats({ xp: 0, daily_xp_cap: 500, level: null, streak: 0, mastery: {}, badgesEarned: 0, resume: false, concepts: [] });
     } finally {
       setLoading(false);
     }
   };
 
   if (loading || !stats) {
-    return <div className="flex justify-center p-12"><div className="spinner"></div></div>;
+    return <div className="screen"><div className="center-card" style={{padding: '40px'}}><div className="spinner"></div></div></div>;
   }
 
+  const weakest = stats.concepts.length > 0 
+    ? stats.concepts.slice().sort((a,b)=>(stats.mastery[a.id]||0)-(stats.mastery[b.id]||0))[0]
+    : { name: 'Unknown Concept', id: 'unknown' };
+  const resume = stats.resume;
+  const badgesEarned = stats.badgesEarned;
+
   return (
-    <div className="max-w-[900px] mx-auto animate-fade-in">
-      <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+    <div className="screen">
+      <div className="page-head">
         <div>
-          <div className="eyebrow">Student Dashboard</div>
-          <h1 className="text-3xl font-serif text-[var(--ink)] tracking-tight">Hi, {user.name.split(' ')[0]}</h1>
-          <p className="text-[var(--ink-soft)] font-medium">Ready to continue your math journey?</p>
+          <h1>Namaste, {user.name.split(' ')[0]} 👋</h1>
+          <p className="page-sub">
+            {stats.level ? (
+              <>You're on the <strong>{stats.level}</strong> track for Linear Equations.</>
+            ) : (
+              "You haven't taken a diagnostic yet — let's find your starting point."
+            )}
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="streak-chip flex items-center gap-1.5">
-            <Zap size={16} fill="currentColor" />
-            {stats.streak} Day Streak
+        <div className="streak-chip">🔥 <strong>{stats.streak}</strong>-day streak</div>
+      </div>
+
+      <div className="grid-2">
+        <div className="card card-highlight">
+          <p className="eyebrow">Chapter 2 · Linear Equations in One Variable</p>
+          {resume ? (
+            <>
+              <h3>Resume where you left off</h3>
+              <p className="muted">You're mid-session — pick up right at your next step.</p>
+              <button className="btn btn-primary" onClick={() => navigate('/student/setup')}>Continue session →</button>
+            </>
+          ) : (
+            <>
+              <h3>Today's session</h3>
+              <p className="muted">Select a topic, take a diagnostic, get an adaptive micro-lesson, and practice.</p>
+              <button className="btn btn-primary" onClick={() => navigate('/student/setup')}>Start today's session →</button>
+            </>
+          )}
+        </div>
+        <div className="card">
+          <p className="eyebrow">XP progress</p>
+          <div className="xp-row">
+            <div className="xp-bar">
+              <div className="xp-bar-fill" style={{ width: `${Math.min(100, (stats.xp / (stats.daily_xp_cap || 500)) * 100)}%` }}></div>
+            </div>
+            <span className="mono">{stats.xp} XP</span>
           </div>
+          <p className="muted small">{stats.daily_xp_cap || 500} XP daily cap · {badgesEarned} badges earned</p>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/student/progress')}>View progress &amp; badges →</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        
-        {/* Main Action Card */}
-        <div className="md:col-span-2 card p-0 overflow-hidden flex flex-col relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--marigold-soft)] rounded-bl-[100px] -z-10 opacity-50"></div>
-          
-          <div className="p-8 flex-1">
-            <div className="badge-foundational mb-4 inline-flex items-center gap-1">
-              <Target size={12} /> Up Next
-            </div>
-            <h2 className="text-2xl font-serif text-[var(--ink)] mb-2">Linear Equations in One Variable</h2>
-            <p className="text-[var(--ink-soft)] max-w-[80%] mb-6">Master the basics of variables and constants before moving on to complex equations.</p>
-            
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[11px] font-bold uppercase text-[var(--ink-faint)] tracking-wider">Concept Mastery</span>
-              <div className="flex-1 h-1.5 bg-[var(--paper-line)] rounded-full overflow-hidden">
-                <div className="h-full bg-[var(--marigold)] rounded-full w-[40%]"></div>
-              </div>
-              <span className="text-xs font-bold text-[var(--ink)]">40%</span>
-            </div>
-          </div>
-          
-          <div className="bg-[#F9F8F5] p-5 border-t border-[var(--border)] flex justify-between items-center">
-            <div className="flex items-center gap-3 text-sm font-semibold text-[var(--ink)]">
-              <div className="w-8 h-8 rounded-full bg-white shadow-sm border border-[var(--border)] flex items-center justify-center">
-                <Clock size={14} className="text-[var(--ink-soft)]" />
-              </div>
-              Est. 12 mins
-            </div>
-            <button onClick={() => navigate('/student/diagnostic')} className="btn btn-primary shadow-sm hover:shadow-md">
-              <Play size={16} fill="currentColor" /> Resume Path
-            </button>
-          </div>
+      <div className="grid-2">
+        <div className="card">
+          <p className="eyebrow">Recommended next</p>
+          <h3>{weakest.name}</h3>
+          <p className="muted">
+            Your weakest concept in this chapter at {pct(stats.mastery[weakest.id] || 0)} mastery. 
+            {!stats.level && ' Recommendation will sharpen once your diagnostic is complete.'}
+          </p>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/student/learning-path')}>Open learning path →</button>
         </div>
-
-        {/* Gamification Stats */}
-        <div className="card bg-[var(--ink)] text-white border-none flex flex-col justify-between">
-          <div>
-            <h3 className="text-white mb-6">Your Progress</h3>
-            
-            <div className="mb-6">
-              <div className="flex justify-between items-end mb-2">
-                <div className="text-[var(--ink-faint)] text-sm font-medium">Total XP</div>
-                <div className="text-3xl font-serif text-[var(--marigold)]">{stats.xp}</div>
-              </div>
-              <div className="h-2 bg-[#2B3350] rounded-full overflow-hidden">
-                <div className="h-full bg-[var(--marigold)] rounded-full w-[65%]"></div>
-              </div>
-              <div className="text-right text-[10px] text-[var(--ink-faint)] mt-1 uppercase tracking-wider font-bold">Level 4</div>
-            </div>
-          </div>
-          
-          <div className="bg-[#2B3350] rounded-xl p-4 flex items-start gap-3">
-            <div className="w-10 h-10 rounded-full bg-[var(--marigold-soft)] text-[var(--marigold-dark)] flex items-center justify-center font-bold text-lg shrink-0">
-              🏆
-            </div>
-            <div>
-              <div className="text-[13px] font-bold text-white mb-0.5">Problem Solver</div>
-              <div className="text-[11px] text-[#A8A4C4] leading-snug">Answer 3 more practice questions to unlock.</div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="card p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="mb-0">Recent Activity</h3>
-            <button className="text-[var(--sky)] text-sm font-bold hover:underline flex items-center">View all <ChevronRight size={14}/></button>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-[var(--forest-soft)] text-[var(--forest)] flex items-center justify-center shrink-0 mt-1">✓</div>
-              <div>
-                <div className="font-bold text-[var(--ink)] text-sm mb-0.5">Mastered "Variable Identification"</div>
-                <div className="text-xs text-[var(--ink-soft)]">Yesterday · +50 XP</div>
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <div className="w-8 h-8 rounded-full bg-[var(--marigold-soft)] text-[var(--marigold-dark)] flex items-center justify-center shrink-0 mt-1">?</div>
-              <div>
-                <div className="font-bold text-[var(--ink)] text-sm mb-0.5">Asked doubt in "Like Terms"</div>
-                <div className="text-xs text-[var(--ink-soft)]">2 days ago · Resolved by Tutor</div>
-              </div>
-            </div>
+        <div className="card">
+          <p className="eyebrow">Concept snapshot</p>
+          <div className="mastery-row">
+            {stats.concepts.map(c => {
+              const score = stats.mastery[c.id] || 0;
+              return (
+                <div className="mastery-pip" title={`${c.name}: ${pct(score)}`} key={c.id}>
+                  <div className="mastery-pip-ring" style={{ '--v': `${score * 100}%`, '--c': masteryColor(score) }}></div>
+                  <span>{c.short}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

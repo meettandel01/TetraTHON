@@ -1,82 +1,189 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { dashboardApi } from '../services/api';
 import Stepper from '../components/Stepper';
 import ConceptGraph from '../components/ConceptGraph';
-import { Play, Lock } from 'lucide-react';
+
+function masteryColor(score) {
+  const hue = Math.max(0, Math.min(1, score)) * 122;
+  return `hsl(${hue.toFixed(0)}, 58%, 42%)`;
+}
 
 export default function LearningPathPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   
-  const concepts = [
-    { id: 'c1', name: 'Integer Operations', short: 'Integers', status: 'mastered', score: 92 },
-    { id: 'c2', name: 'Variable & Constant Identification', short: 'Variables', status: 'mastered', score: 85 },
-    { id: 'c4', name: 'One-Step Linear Equation', short: 'One-Step', status: 'weak', score: 40, current: true },
-    { id: 'c5', name: 'Two-Step Linear Equation', short: 'Two-Step', status: 'locked', score: 0 },
-  ];
+  const [level, setLevel] = useState(null);
+  const [masteryMap, setMasteryMap] = useState({});
+  const [lessonConcept, setLessonConcept] = useState(null);
+  const [concepts, setConcepts] = useState([]);
+  const [chapters, setChapters] = useState([]);
+  const [activeChapter, setActiveChapter] = useState(null);
+  const [graphData, setGraphData] = useState(null);
+  const [inSession, setInSession] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    loadData();
+  }, [user]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const res = await dashboardApi.get(user.student_id);
+      setLevel(res.data.student.level || 'Foundational');
+      
+      const mMap = {};
+      res.data.concept_graph.nodes.forEach(n => {
+        mMap[n.id] = n.mastery !== null ? (n.mastery / 100) : 0;
+      });
+      setMasteryMap(mMap);
+      setGraphData(res.data.concept_graph);
+
+      if (res.data.chapters && res.data.chapters.length > 0) {
+        setChapters(res.data.chapters);
+        setActiveChapter(res.data.chapters[0].id);
+      }
+
+      // Build concepts from API graph data
+      const apiConcepts = res.data.concept_graph.nodes
+        .filter(n => n.status !== 'chapter' && !String(n.id).startsWith('ch_'))
+        .map(n => ({
+          id: n.id,
+          short: n.name.length > 12 ? n.name.substring(0, 10) + '..' : n.name,
+          name: n.name,
+          ncert: '',
+        }));
+      setConcepts(apiConcepts);
+
+      const hasActiveSession = res.data.stats.sessions_total > res.data.stats.sessions_completed;
+      setInSession(hasActiveSession);
+
+      let nextConcept = null;
+      for (let i = 0; i < apiConcepts.length; i++) {
+        const c = apiConcepts[i];
+        const score = mMap[c.id] || 0;
+        const unlocked = i === 0 || (mMap[apiConcepts[i-1].id] || 0) >= 0.4;
+        if (unlocked && score < 0.8) {
+          nextConcept = c.id;
+          break;
+        }
+      }
+      setLessonConcept(nextConcept || (apiConcepts.length > 0 ? apiConcepts[apiConcepts.length-1].id : null));
+    } catch (err) {
+      console.error(err);
+      setMasteryMap({});
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="screen"><div className="center-card" style={{padding: '40px'}}><div className="spinner"></div></div></div>;
+  }
 
   return (
-    <div className="max-w-[900px] mx-auto animate-fade-in">
-      <Stepper 
-        steps={[
-          { label: 'Diagnostic' },
-          { label: 'Path' },
-          { label: 'Lesson' },
-          { label: 'Practice' },
-          { label: 'Summary' }
-        ]} 
-        currentStep={1} 
-      />
+    <div className="screen">
+      {inSession ? (
+        <Stepper 
+          steps={[
+            { label: 'Diagnostic' },
+            { label: 'Path' },
+            { label: 'Lesson' },
+            { label: 'Practice' },
+            { label: 'Summary' }
+          ]} 
+          currentStep={1} 
+        />
+      ) : (
+        <div className="card curriculum-picker">
+          <p className="eyebrow">Curriculum scope</p>
+          <div className="curr-row">
+            <div className="curr-group">
+              <span className="curr-label">Board</span>
+              <div className="curr-chip-row">
+                <button className="curr-chip active">NCERT</button>
+                <button className="curr-chip planned">State Boards <span className="soon-tag">soon</span></button>
+              </div>
+            </div>
+            <div className="curr-group">
+              <span className="curr-label">Subject</span>
+              <div className="curr-chip-row">
+                <button className="curr-chip active">Mathematics</button>
+                <button className="curr-chip planned">Science <span className="soon-tag">soon</span></button>
+              </div>
+            </div>
+          </div>
+          <div className="curr-group">
+            <span className="curr-label">Chapter</span>
+            <div className="curr-chip-row">
+              {chapters.length > 0 ? chapters.map((ch, idx) => (
+                <button 
+                  key={ch.id} 
+                  className={`curr-chip ${activeChapter === ch.id ? 'active' : ''}`}
+                  onClick={() => setActiveChapter(ch.id)}
+                >
+                  Ch {ch.number || idx + 1} &middot; {ch.name}
+                </button>
+              )) : (
+                <button className="curr-chip active">Ch 2 &middot; Linear Equations in One Variable</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
-      <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+      <div className="page-head">
         <div>
-          <div className="eyebrow">Your Curriculum</div>
-          <h1 className="text-3xl font-serif text-[var(--ink)] tracking-tight">Learning Path</h1>
-          <p className="text-[var(--ink-soft)] font-medium">Class 8 · NCERT Ch 2</p>
-        </div>
-        <div className="flex gap-2 bg-white rounded-full p-1 border border-[var(--border)] shadow-sm">
-          <button className="px-4 py-1.5 rounded-full bg-[var(--ink)] text-white text-[13px] font-bold">CBSE</button>
-          <button className="px-4 py-1.5 rounded-full text-[var(--ink-soft)] hover:bg-[#F2EEE1] text-[13px] font-bold transition-colors">ICSE</button>
-          <button className="px-4 py-1.5 rounded-full text-[var(--ink-soft)] hover:bg-[#F2EEE1] text-[13px] font-bold transition-colors">State Board</button>
+          <h1>Your Learning Path</h1>
+          <p className="page-sub">
+            Track: <span className="badge-advanced badge-sm">{level}</span> &middot; {chapters.find(c => c.id === activeChapter)?.name || 'Linear Equations in One Variable'}
+          </p>
         </div>
       </div>
 
-      <div className="card p-0 overflow-hidden mb-8">
-        <div className="bg-[#F9F8F5] p-4 border-b border-[var(--border)] flex justify-between items-center">
-          <h3 className="mb-0 text-sm font-bold uppercase tracking-wider text-[var(--ink-soft)] flex items-center gap-2">
-            Concept Dependency Graph
-          </h3>
-          <div className="flex gap-4 text-[12px] font-bold text-[var(--ink-faint)]">
-            <span className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-[var(--forest)]" /> Mastered</span>
-            <span className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-[var(--marigold-dark)]" /> Needs Work</span>
-            <span className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-[#E4DECD]" /> Locked</span>
-          </div>
+      <div className="grid-graph-list">
+        <div className="card">
+          <p className="eyebrow">Prerequisite concept graph</p>
+          <ConceptGraph data={graphData} masteryMap={masteryMap} currentId={lessonConcept} />
+          <p className="muted small">Each node is validated against the concept DAG on the backend.</p>
         </div>
-        <ConceptGraph />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {concepts.map((c, idx) => (
-          <div key={c.id} className={`p-5 rounded-[var(--radius-md)] border flex items-center gap-4 transition-all ${c.current ? 'bg-white border-[var(--sky)] shadow-sm' : 'bg-[#F9F8F5] border-[var(--border)] opacity-80'}`}>
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${
-              c.status === 'mastered' ? 'bg-[var(--forest-soft)] text-[var(--forest)]' :
-              c.status === 'weak' ? 'bg-[var(--marigold-soft)] text-[var(--marigold-dark)] border-2 border-[var(--marigold-dark)] shadow-[0_0_0_3px_var(--paper)]' :
-              'bg-[#E4DECD] text-[#A69F8E]'
-            }`}>
-              {c.status === 'locked' ? <Lock size={18} /> : `${c.score}%`}
+        <div className="card">
+          <p className="eyebrow">Concepts in this chapter</p>
+          {concepts.length === 0 ? (
+            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--ink-faint)' }}>
+              No concepts available for this track yet. Please ask an admin to add concepts.
             </div>
-            
-            <div className="flex-1">
-              <div className="text-[11px] font-bold uppercase text-[var(--ink-faint)] tracking-wider mb-1">Concept {idx + 1}</div>
-              <div className="font-bold text-[var(--ink)] leading-snug">{c.name}</div>
+          ) : (
+            <div className="path-list">
+              {concepts.map((c, i) => {
+                const unlocked = i === 0 || (masteryMap[concepts[i-1]?.id] || 0) >= 0.4;
+                const score = masteryMap[c.id] || 0;
+                
+                return (
+                  <div key={c.id} className={`path-row ${unlocked ? '' : 'locked'}`}>
+                    <div className="path-row-ring" style={{ '--v': `${score*100}%`, '--c': unlocked ? masteryColor(score) : '#C7C2B3' }}>
+                      <span>{unlocked ? Math.round(score*100) : '🔒'}</span>
+                    </div>
+                    <div className="path-row-mid">
+                      <div className="path-row-title">{c.name}</div>
+                      <div className="path-row-ncert">{c.ncert}</div>
+                    </div>
+                    {!unlocked ? (
+                      <span className="muted small">Locked — reach 40% on the prior concept</span>
+                    ) : c.id === lessonConcept ? (
+                      <button className="btn btn-ghost btn-sm" onClick={() => navigate('/student/lesson', { state: { conceptId: c.id } })}>Start lesson &rarr;</button>
+                    ) : (
+                      <span className="muted small">{score >= 0.7 ? 'Mastered' : 'Available'}</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-
-            {c.current && (
-              <button onClick={() => navigate('/student/lesson')} className="btn btn-primary btn-sm px-4">
-                Start <Play size={14} fill="currentColor" />
-              </button>
-            )}
-          </div>
-        ))}
+          )}
+        </div>
       </div>
     </div>
   );

@@ -7,8 +7,9 @@ import os
 import base64
 from pathlib import Path
 
-from database import get_db, Doubt, Student, Concept, StudentConceptMastery
+from database import get_db, Doubt, Student, Concept, StudentConceptMastery, DoubtFeedback
 from routers.concepts import get_concept_id_by_name
+from routers.gamification import check_and_award_badges
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -16,40 +17,19 @@ logger = logging.getLogger(__name__)
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
-UPLOAD_DIR.mkdir(exist_ok=True)
-
-NCERT_REFERENCES = {
-    "Linear Equations": "NCERT Class 8, Ch. 2 — Linear Equations in One Variable",
-    "Polynomials": "NCERT Class 9, Ch. 2 — Polynomials",
-    "Quadratic Equations": "NCERT Class 10, Ch. 4 — Quadratic Equations",
-    "Trigonometry": "NCERT Class 10, Ch. 8 — Introduction to Trigonometry",
-    "Arithmetic Progressions": "NCERT Class 10, Ch. 5 — Arithmetic Progressions",
-    "Solving Linear Equations": "NCERT Class 8, Ch. 2 — Linear Equations in One Variable",
-    "Word Problems (Linear)": "NCERT Class 8, Ch. 2, Section 2.6",
-    "Polynomial Operations": "NCERT Class 9, Ch. 2, Section 2.3",
-    "Factorization": "NCERT Class 8, Ch. 14 — Factorisation",
-    "Quadratic Formula": "NCERT Class 10, Ch. 4, Section 4.3",
-    "Nature of Roots": "NCERT Class 10, Ch. 4, Section 4.4",
-    "nth Term of AP": "NCERT Class 10, Ch. 5, Section 5.2",
-    "Sum of AP": "NCERT Class 10, Ch. 5, Section 5.3",
-    "Trigonometric Ratios": "NCERT Class 10, Ch. 8, Section 8.2",
-    "Trigonometric Identities": "NCERT Class 10, Ch. 8, Section 8.4",
-}
-
 async def get_gemini_response(question: str, mode: str, taxonomy_names: list, image_data: Optional[str] = None) -> dict:
     """Call Gemini API for doubt resolution."""
     try:
-        from google import genai
-        from google.genai import types
+        import google.generativeai as genai
         from dotenv import load_dotenv
         load_dotenv()
 
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key or api_key == "your_gemini_api_key_here":
-            logger.warning("⚠️ No valid Gemini API key found, returning mock response")
-            return get_mock_response(question, mode)
+            logger.warning("⚠️ No valid Gemini API key found, returning error response")
+            return get_error_response(question, mode)
 
-        client = genai.Client(api_key=api_key)
+        genai.configure(api_key=api_key)
 
         if mode == "socratic":
             system_prompt = """You are a wise Socratic tutor for Indian Class 8-10 Math students.
@@ -61,8 +41,9 @@ NEVER give the direct answer. Instead:
 Keep it friendly, concise, and encouraging. Use simple English.
 
 IMPORTANT RULES FOR THE END OF YOUR RESPONSE:
-At the very end of your response, on a new line, you MUST write exactly:
+At the very end of your response, on new lines, you MUST write exactly:
 ROOT_CONCEPTS: [1-2 concepts from the taxonomy list that relate to this doubt, comma separated]
+CONFIDENCE: [number between 0.0 and 1.0 indicating your confidence in solving this doubt accurately]
 Taxonomy list: {', '.join(taxonomy_names)}"""
         else:
             system_prompt = f"""You are a helpful Math tutor for Indian Class 8-10 students.
@@ -75,86 +56,64 @@ Provide a clear, step-by-step solution:
 Use simple language, emojis where helpful, and keep it under 200 words.
 
 IMPORTANT RULES FOR THE END OF YOUR RESPONSE:
-At the very end of your response, on a new line, you MUST write exactly:
+At the very end of your response, on new lines, you MUST write exactly:
 ROOT_CONCEPTS: [1-2 concepts from the taxonomy list that relate to this doubt, comma separated]
+CONFIDENCE: [number between 0.0 and 1.0 indicating your confidence in solving this doubt accurately]
 Taxonomy list: {', '.join(taxonomy_names)}"""
 
         full_prompt = f"{system_prompt}\n\nStudent's question: {question}"
 
         if image_data:
-            image_bytes = base64.b64decode(image_data)
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=[
-                    types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
-                    full_prompt,
-                ]
-            )
+            model = genai.GenerativeModel('gemini-2.0-flash')
+            import PIL.Image
+            import io
+            image_bytes_raw = base64.b64decode(image_data)
+            img = PIL.Image.open(io.BytesIO(image_bytes_raw))
+            response = model.generate_content([full_prompt, img])
         else:
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=full_prompt,
-            )
+            model = genai.GenerativeModel('gemini-2.0-flash')
+            response = model.generate_content(full_prompt)
 
         logger.info(f"✅ Gemini response generated for mode: {mode}")
         raw_text = response.text
         
-        # Parse out ROOT_CONCEPTS
+        # Parse out ROOT_CONCEPTS and CONFIDENCE
         lines = raw_text.split('\n')
         concepts = []
+        confidence = 0.85
         clean_text = []
         for line in lines:
             if line.startswith("ROOT_CONCEPTS:"):
                 c_str = line.replace("ROOT_CONCEPTS:", "").strip()
                 concepts = [c.strip() for c in c_str.split(",") if c.strip() in taxonomy_names]
+            elif line.startswith("CONFIDENCE:"):
+                try:
+                    confidence = float(line.replace("CONFIDENCE:", "").strip())
+                except:
+                    confidence = 0.85
             else:
                 clean_text.append(line)
                 
         return {
             "response": "\n".join(clean_text).strip(),
-            "concepts": concepts
+            "concepts": concepts,
+            "confidence": confidence
         }
 
     except Exception as e:
         logger.error(f"❌ Gemini API error: {e}")
-        return get_mock_response(question, mode)
+        return get_error_response(question, mode)
 
 
-def get_mock_response(question: str, mode: str) -> dict:
-    """Fallback mock response when API key is not set."""
-    if mode == "socratic":
-        return {
-            "response": """🤔 **Let's think about this together!**
-
-Before I guide you, ask yourself:
-1. **What type of problem is this?** (Linear equation? Polynomial? Geometry?)
-2. **What information are you given?** List out all the values you know.
-3. **What formula might apply here?** Think about what you've learned recently.
-
-💡 *Hint:* Try to identify the unknown variable first, then work backwards from what you know.
-
-What do you think the first step should be? Give it a try! 🎯""",
-            "concepts": ["Linear Equations"]
-        }
-    else:
-        return {
-            "response": f"""📚 **Step-by-Step Solution**
-
-**Your Question:** {question[:100]}...
-
-**Concept:** Identifying the relevant mathematical concept
-
-**Step 1:** Read the problem carefully and identify what's being asked
-**Step 2:** Write down the given information
-**Step 3:** Choose the appropriate formula or method
-**Step 4:** Apply the method step by step
-**Step 5:** Verify your answer
-
-⚠️ *Note: Connect your Gemini API key in the backend `.env` file for AI-powered personalized explanations!*
-
-💡 **Quick Tip:** Always verify your answer by substituting it back into the original equation!""",
-            "concepts": ["Linear Equations"]
-        }
+def get_error_response(question: str, mode: str) -> dict:
+    """Error response when API key is not configured or API fails."""
+    return {
+        "response": "⚠️ **AI Tutor Unavailable**\n\nWe could not connect to the Gemini AI service to process your question. Please make sure a valid `GEMINI_API_KEY` is set in the backend `.env` configuration file.",
+        "concepts": [],
+        "confidence": 0.0,
+        "requires_escalation": True,
+        "error": "NO_API_KEY"
+    }
 
 
 @router.post("/ask")
@@ -196,11 +155,12 @@ async def ask_doubt(
     response_text = result["response"]
     identified_concepts = result["concepts"]
     
-    # Format curriculum citations
+    # Format curriculum citations from database
     citations = []
-    for c in identified_concepts:
-        if c in NCERT_REFERENCES and NCERT_REFERENCES[c] not in citations:
-            citations.append(NCERT_REFERENCES[c])
+    for c_name in identified_concepts:
+        c_obj = next((c for c in all_concepts if c.name == c_name), None)
+        if c_obj and getattr(c_obj, 'ncert_reference', None) and c_obj.ncert_reference not in citations:
+            citations.append(c_obj.ncert_reference)
             
     if citations:
         response_text += "\n\n" + "\n".join([f"📖 **Reference:** {cit}" for cit in citations])
@@ -241,11 +201,12 @@ async def ask_doubt(
         c_obj = next((c for c in all_concepts if c.id == concept_id), None)
         if c_obj:
             related_ids = []
-            if c_obj.parent_concept:
-                sibs = [x.id for x in all_concepts if x.parent_concept == c_obj.parent_concept and x.id != c_obj.id]
+            parent_name = getattr(c_obj, 'parent_concept', None)
+            if parent_name:
+                sibs = [x.id for x in all_concepts if getattr(x, 'parent_concept', None) == parent_name and x.id != c_obj.id]
                 related_ids.extend(sibs)
-            kids = [x.id for x in all_concepts if x.parent_concept == c_obj.name]
-            related_ids.extend(kids)
+                kids = [x.id for x in all_concepts if getattr(x, 'parent_concept', None) == c_obj.name]
+                related_ids.extend(kids)
             
             weak_related = db.query(StudentConceptMastery).filter(
                 StudentConceptMastery.student_id == student_id,
@@ -260,8 +221,10 @@ async def ask_doubt(
 
     db.commit()
     db.refresh(doubt)
+    check_and_award_badges(student_id, db)
 
     logger.info(f"✅ Doubt {doubt.id} resolved for student {student_id}")
+    conf = result.get("confidence", 0.85)
     return {
         "doubt_id": doubt.id,
         "question": question,
@@ -270,6 +233,8 @@ async def ask_doubt(
         "concept_tags": identified_concepts,
         "related_weak_areas": related_weak_areas[:3], # Limit to 3
         "has_image": image is not None,
+        "confidence": conf,
+        "requires_escalation": conf < 0.5 or result.get("error") is not None,
     }
 
 
@@ -288,3 +253,21 @@ def get_doubt_history(student_id: int, db: Session = Depends(get_db)):
         }
         for d in doubts
     ]
+
+
+class FeedbackRequest(BaseModel):
+    upvote: bool
+
+@router.post("/{doubt_id}/feedback")
+def submit_doubt_feedback(
+    doubt_id: int,
+    payload: FeedbackRequest,
+    db: Session = Depends(get_db)
+):
+    doubt = db.query(Doubt).filter(Doubt.id == doubt_id).first()
+    if not doubt:
+        raise HTTPException(status_code=404, detail="Doubt not found")
+    feedback = DoubtFeedback(doubt_id=doubt_id, upvote=payload.upvote)
+    db.add(feedback)
+    db.commit()
+    return {"status": "success", "doubt_id": doubt_id, "upvote": payload.upvote}

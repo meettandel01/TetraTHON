@@ -1,147 +1,165 @@
 import React, { useState, useEffect } from 'react';
-import { escalationsApi } from '../services/api';
+import SectionTabs from '../components/SectionTabs';
 import toast from 'react-hot-toast';
+import { escalationsApi, teacherApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function EscalationQueuePage() {
-  const [escalations, setEscalations] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   const [filter, setFilter] = useState('pending');
-  const [responseTexts, setResponseTexts] = useState({});
+  const [activeSection, setActiveSection] = useState('');
+  const [sections, setSections] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [drafts, setDrafts] = useState({});
+  const [escs, setEscs] = useState([]);
+
+  useEffect(() => {
+    teacherApi.getSections()
+      .then(res => {
+        if (res.data?.sections?.length > 0) {
+          setSections(res.data.sections);
+          setActiveSection(res.data.sections[0]);
+        }
+      })
+      .catch(err => console.error(err));
+  }, []);
+
+  const fetchEscalations = () => {
+    setLoading(true);
+    escalationsApi.getEscalations(filter)
+      .then(res => {
+        const mapped = res.data.map(e => ({
+          ...e,
+          studentName: e.student_name || e.studentName || 'Student',
+          concept: e.concept_id || e.concept || 'General',
+          time: e.created_at ? new Date(e.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : (e.time || 'Just now'),
+          auto: e.auto_escalated !== undefined ? e.auto_escalated : e.auto,
+          doubt: e.doubt_text || e.doubt || '',
+          response: e.response_text || e.response || '',
+          claimedBy: e.claimed_by_user_id || e.claimed_by || e.claimedBy
+        }));
+        setEscs(mapped);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
     fetchEscalations();
-  }, [filter]);
+  }, [filter, activeSection]);
 
-  const fetchEscalations = async () => {
+  const regenerateDraft = (id) => {
     setLoading(true);
-    try {
-      const res = await escalationsApi.getEscalations(filter);
-      setEscalations(res.data);
-    } catch (err) {
-      toast.error('Failed to load escalations');
-    } finally {
+    escalationsApi.regenerateDraft(id).then((res) => {
+      setDrafts(prev => ({...prev, [id]: res.data.draft}));
+      toast.success('Draft regenerated');
       setLoading(false);
-    }
+    }).catch(() => {
+      toast.error('Failed to regenerate draft');
+      setLoading(false);
+    });
   };
 
-  const handleClaim = async (id) => {
-    try {
-      await escalationsApi.claimEscalation(id);
-      toast.success('Escalation claimed');
+  if (loading) {
+    return <div className="screen"><div className="center-card" style={{padding: '40px'}}><div className="spinner"></div></div></div>;
+  }
+
+  const list = escs;
+
+  const claimEscalation = (id) => {
+    setLoading(true);
+    escalationsApi.claimEscalation(id).then(() => {
       fetchEscalations();
-    } catch (err) {
-      toast.error('Failed to claim escalation');
-    }
+      toast('Escalation claimed', { icon: 'ℹ️' });
+    }).catch(() => setLoading(false));
   };
 
-  const handleRespond = async (id) => {
-    const text = responseTexts[id];
-    if (!text) {
-      toast.error('Response text is required');
+  const respondEscalation = (id) => {
+    const val = drafts[id];
+    if (!val || !val.trim()) {
+      toast('Write a response before sending.', { icon: 'ℹ️' });
       return;
     }
-    try {
-      await escalationsApi.respondEscalation(id, text);
-      toast.success('Response submitted successfully');
+    setLoading(true);
+    escalationsApi.respondEscalation(id, val).then(() => {
       fetchEscalations();
-    } catch (err) {
-      toast.error('Failed to submit response');
-    }
-  };
-
-  const handleTextChange = (id, text) => {
-    setResponseTexts({ ...responseTexts, [id]: text });
+      toast.success('Response sent to student');
+      setDrafts(prev => ({...prev, [id]: ''}));
+    }).catch(() => setLoading(false));
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2 font-serif text-[var(--ink)]">Escalation Queue</h1>
-        <p className="text-[var(--ink-soft)]">Review and respond to student doubts that require human intervention.</p>
+    <div className="screen">
+      <div className="page-head">
+        <div>
+          <h1>Escalation Queue</h1>
+          <p className="page-sub">Doubts the AI tutor couldn't confidently resolve, or the student flagged as unhelpful.</p>
+        </div>
       </div>
 
-      <div className="flex gap-4 mb-6">
-        {['pending', 'claimed', 'resolved', 'all'].map(status => (
-          <button
-            key={status}
-            onClick={() => setFilter(status)}
-            className={`px-4 py-2 rounded-full font-bold text-sm border-2 transition-colors ${
-              filter === status
-                ? 'bg-[var(--ink)] text-[var(--paper)] border-[var(--ink)]'
-                : 'bg-[var(--paper)] text-[var(--ink-soft)] border-[var(--border)] hover:border-[var(--ink-soft)]'
-            }`}
-          >
-            {status.charAt(0).toUpperCase() + status.slice(1)}
-          </button>
-        ))}
+      <SectionTabs 
+        sections={sections} 
+        activeSection={activeSection} 
+        onChange={setActiveSection} 
+      />
+
+      <div className="tab-row">
+        <button className={`tab-btn ${filter === 'pending' ? 'active' : ''}`} onClick={() => setFilter('pending')}>Pending</button>
+        <button className={`tab-btn ${filter === 'resolved' ? 'active' : ''}`} onClick={() => setFilter('resolved')}>Resolved</button>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center p-12">
-          <div className="w-10 h-10 border-4 border-[var(--border)] border-t-[var(--sky)] rounded-full animate-spin"></div>
-        </div>
-      ) : escalations.length === 0 ? (
-        <div className="border-2 border-dashed border-[var(--border)] rounded-[var(--r-lg)] p-12 text-center text-[var(--ink-soft)]">
-          <p>No {filter} escalations found.</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-6">
-          {escalations.map((esc) => (
-            <div key={esc.id} className="bg-[var(--card)] border border-[var(--border)] rounded-[var(--r-lg)] p-6 shadow-[var(--shadow-sm)]">
-              <div className="flex justify-between items-start mb-4">
+      <div className="escalation-list">
+        {list.length > 0 ? list.map(e => (
+          <div key={e.id} className="card escalation-card">
+            <div className="escalation-top">
+              <div className="detail-head">
+                <div className="avatar" style={{width: '32px', height: '32px', fontSize: '13px'}}>{(e.studentName || 'S').charAt(0)}</div>
                 <div>
-                  <h3 className="font-bold text-lg">{esc.student_name} <span className="text-sm font-normal text-[var(--ink-soft)] ml-2">Section {esc.student_section}</span></h3>
-                  <p className="text-sm text-[var(--ink-faint)]">Concept: {esc.concept_id} • AI Confidence: {esc.ai_confidence ? (esc.ai_confidence * 100).toFixed(0) + '%' : 'N/A'}</p>
-                </div>
-                <div>
-                  <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                    esc.status === 'pending' ? 'bg-[var(--redpen-soft)] text-[#A5281F]' :
-                    esc.status === 'claimed' ? 'bg-[var(--sky-soft)] text-[#2947C4]' :
-                    'bg-[var(--forest-soft)] text-[#0A6B44]'
-                  }`}>
-                    {esc.status.toUpperCase()}
-                  </span>
+                  <strong>{e.studentName}</strong><br />
+                  <span className="muted small">Sec {activeSection} &middot; {e.concept} &middot; {e.time}</span>
                 </div>
               </div>
-
-              <div className="bg-[var(--paper)] border-l-4 border-[var(--redpen)] p-4 rounded-r-[var(--r-sm)] mb-4 italic text-[14px]">
-                "{esc.doubt_text}"
+              <div className="escalation-badges">
+                {e.auto && <span className="status-pill status-auto">⚠ Auto (low confidence)</span>}
+                {e.status === 'pending' && <span className="status-pill status-pending">Pending</span>}
+                {e.status === 'claimed' && <span className="status-pill status-claimed">Claimed</span>}
+                {e.status === 'resolved' && <span className="status-pill status-resolved">Resolved</span>}
               </div>
-
-              {esc.status === 'pending' && (
-                <div className="flex justify-end">
-                  <button onClick={() => handleClaim(esc.id)} className="bg-[var(--ink)] text-[var(--paper)] px-4 py-2 rounded-full font-bold text-sm hover:bg-[#2B3350]">
-                    Claim Escalation
-                  </button>
-                </div>
-              )}
-
-              {esc.status === 'claimed' && (
-                <div className="mt-4">
-                  <textarea
-                    className="w-full min-h-[100px] p-4 rounded-[var(--r-md)] border-2 border-[var(--border)] bg-[var(--paper)] focus:outline-none focus:border-[var(--sky)] mb-3 text-sm"
-                    placeholder="Type your response to the student here..."
-                    value={responseTexts[esc.id] || ''}
-                    onChange={(e) => handleTextChange(esc.id, e.target.value)}
-                  ></textarea>
-                  <div className="flex justify-end">
-                    <button onClick={() => handleRespond(esc.id)} className="bg-[var(--forest)] text-white px-4 py-2 rounded-full font-bold text-sm hover:bg-[#085a39]">
-                      Submit Response & Resolve
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {esc.status === 'resolved' && esc.response_text && (
-                <div className="mt-4 bg-[var(--forest-soft)] p-4 rounded-[var(--r-md)] text-sm">
-                  <strong>Teacher Response:</strong>
-                  <p className="mt-1">{esc.response_text}</p>
-                </div>
-              )}
             </div>
-          ))}
-        </div>
-      )}
+            <p className="escalation-doubt">"{e.doubt}"</p>
+            
+            {e.status === 'resolved' ? (
+              <div className="teacher-response">
+                <p className="eyebrow">Your response</p>
+                <p>{e.response}</p>
+              </div>
+            ) : e.status === 'claimed' && (e.claimedBy === user?.id || e.claimedBy === user?.teacher_id || !e.claimedBy || e.claimedBy === 't1') ? (
+              <>
+                <div className="ai-draft-label">🤖 AI-drafted response — read, edit, then send</div>
+                <textarea 
+                  className="doubt-textarea"
+                  value={drafts[e.id] || ''}
+                  onChange={(evt) => setDrafts({...drafts, [e.id]: evt.target.value})}
+                ></textarea>
+                <div className="escalation-actions-row">
+                  <button className="btn btn-ghost btn-sm" onClick={() => regenerateDraft(e.id)}>↻ Regenerate draft</button>
+                  <button className="btn btn-primary btn-sm" onClick={() => respondEscalation(e.id)}>Send response</button>
+                </div>
+              </>
+            ) : (
+              <button className="btn btn-ghost btn-sm" onClick={() => claimEscalation(e.id)}>Claim</button>
+            )}
+          </div>
+        )) : (
+          <div className="empty-state">
+            <p>Nothing here yet.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

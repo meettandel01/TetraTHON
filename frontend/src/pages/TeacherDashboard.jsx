@@ -1,161 +1,113 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Target, Users, AlertCircle, ArrowRight, Check } from 'lucide-react';
-import api from '../services/api';
+import SectionTabs from '../components/SectionTabs';
+import ConceptGraph from '../components/ConceptGraph';
+import { teacherApi } from '../services/api';
 
 export default function TeacherDashboard() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-
-  // Mock Data
-  const escalations = [
-    {
-      id: 1,
-      student: 'Rahul V.',
-      avatar: 'R',
-      type: 'Concept Gap',
-      message: 'Failed diagnostic for "Like Terms" despite mastering prerequisites.',
-      time: '10 mins ago',
-      color: 'marigold'
-    },
-    {
-      id: 2,
-      student: 'Maya S.',
-      avatar: 'M',
-      type: 'High Failure Rate',
-      message: 'Failed 3 practice sets in a row on "Two-Step Equations". Needs intervention.',
-      time: '1 hr ago',
-      color: 'redpen'
-    }
-  ];
-
-  const roster = [
-    { name: 'Aditi K.', status: 'on-track', progress: [1, 1, 1, 0, 0] },
-    { name: 'Rahul V.', status: 'stuck', progress: [1, 1, 0, -1, 0] },
-    { name: 'Maya S.', status: 'stuck', progress: [1, 0, -1, -1, 0] },
-    { name: 'Kabir D.', status: 'on-track', progress: [1, 1, 1, 1, 0] },
-  ];
+  const [activeSection, setActiveSection] = useState('');
+  const [sections, setSections] = useState([]);
+  const [data, setData] = useState(null);
 
   useEffect(() => {
-    // Simulate loading
-    setTimeout(() => setLoading(false), 800);
+    teacherApi.getSections()
+      .then(res => {
+        if (res.data?.sections?.length > 0) {
+          setSections(res.data.sections);
+          setActiveSection(res.data.sections[0]);
+        }
+      })
+      .catch(err => console.error(err));
   }, []);
 
-  if (loading) {
-    return <div className="flex justify-center p-12"><div className="spinner"></div></div>;
+  useEffect(() => {
+    if (!activeSection) return;
+    setLoading(true);
+    teacherApi.getDashboard(activeSection)
+      .then(res => {
+        setData(res.data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, [activeSection]);
+
+  if (loading || !data) {
+    return <div className="screen"><div className="center-card" style={{padding: '40px'}}><div className="spinner"></div></div></div>;
   }
 
+  const { kpis, level_distribution: dist, activity_feed: activity, mastery_map: masteryMap, concept_graph: graphData } = data;
+  const maxDist = Math.max(...Object.values(dist), 1);
+
   return (
-    <div className="max-w-[1000px] mx-auto animate-fade-in">
-      <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+    <div className="screen">
+      <div className="page-head">
         <div>
-          <div className="eyebrow">Teacher Dashboard</div>
-          <h1 className="text-3xl font-serif text-[var(--ink)] tracking-tight">Hi, {user?.name || 'Teacher'}</h1>
-          <p className="text-[var(--ink-soft)] font-medium">Class 8-A Mathematics</p>
+          <h1>Teacher Dashboard</h1>
+          <p className="page-sub">{user?.name} &middot; Real-time view across your sections</p>
         </div>
       </div>
+      
+      <SectionTabs 
+        sections={sections} 
+        activeSection={activeSection} 
+        onChange={setActiveSection} 
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="card p-6">
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-10 h-10 rounded-full bg-[var(--forest-soft)] text-[var(--forest)] flex items-center justify-center">
-              <Target size={20} />
-            </div>
-          </div>
-          <div className="text-[32px] font-serif text-[var(--ink)] mb-1">78%</div>
-          <div className="text-[13px] font-bold text-[var(--ink-soft)] uppercase tracking-wider">Avg Class Mastery</div>
-        </div>
-        
-        <div className="card p-6">
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-10 h-10 rounded-full bg-[#E4DECD] text-[#A69F8E] flex items-center justify-center">
-              <Users size={20} />
-            </div>
-          </div>
-          <div className="text-[32px] font-serif text-[var(--ink)] mb-1">32 / 35</div>
-          <div className="text-[13px] font-bold text-[var(--ink-soft)] uppercase tracking-wider">Active Students</div>
-        </div>
-
-        <div className="card p-6 bg-[var(--redpen)] text-white border-none">
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center">
-              <AlertCircle size={20} />
-            </div>
-          </div>
-          <div className="text-[32px] font-serif text-white mb-1">2</div>
-          <div className="text-[13px] font-bold text-white/80 uppercase tracking-wider">Pending Interventions</div>
-        </div>
+      <div className="kpi-row">
+        <div className="kpi-card"><span className="kpi-num">{kpis.total_students}</span><span className="kpi-label">Students in section</span></div>
+        <div className="kpi-card"><span className="kpi-num">{Math.round(kpis.avg_mastery * 100)}%</span><span className="kpi-label">Avg. mastery</span></div>
+        <div className="kpi-card kpi-alert"><span className="kpi-num">{kpis.pending_escalations}</span><span className="kpi-label">Pending escalations</span></div>
+        <div className="kpi-card"><span className="kpi-num">{kpis.active_today}</span><span className="kpi-label">Active today</span></div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Escalation Inbox */}
-        <div className="lg:col-span-2">
-          <h3 className="text-xl mb-4 flex items-center gap-2">
-            <AlertCircle size={20} className="text-[var(--redpen)]" /> Escalation Inbox
-          </h3>
-          
-          <div className="space-y-4">
-            {escalations.map((esc) => (
-              <div key={esc.id} className="card p-5 border-l-4" style={{ borderLeftColor: `var(--${esc.color})` }}>
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-[var(--${esc.color}-soft)] text-[var(--${esc.color}-dark)]`}>
-                      {esc.avatar}
-                    </div>
-                    <div>
-                      <div className="font-bold text-[var(--ink)]">{esc.student}</div>
-                      <div className="text-xs font-bold uppercase tracking-wider text-[var(--ink-faint)]">{esc.time}</div>
-                    </div>
+      <div className="grid-2">
+        <div className="card">
+          <p className="eyebrow">Level distribution</p>
+          <div className="dist-chart">
+            {Object.entries(dist).map(([k, v]) => {
+              let badgeClass = 'badge-neutral';
+              if (k === 'Foundational') badgeClass = 'badge-foundational';
+              if (k === 'Grade-Level') badgeClass = 'badge-grade';
+              if (k === 'Advanced') badgeClass = 'badge-advanced';
+
+              return (
+                <div className="dist-row" key={k}>
+                  <span className="dist-label">{k}</span>
+                  <div className="dist-bar-track">
+                    <div className={`dist-bar-fill ${badgeClass}`} style={{ width: `${(v / maxDist) * 100}%` }}></div>
                   </div>
-                  <div className={`badge-${esc.color === 'redpen' ? 'hard' : 'medium'}`}>
-                    {esc.type}
-                  </div>
+                  <span className="mono">{v}</span>
                 </div>
-                <p className="text-[14px] text-[var(--ink-soft)] font-medium mb-4 ml-11">
-                  {esc.message}
-                </p>
-                <div className="flex justify-end gap-2">
-                  <button className="btn btn-ghost btn-sm">Mark Resolved</button>
-                  <button className="btn btn-primary btn-sm px-4">Intervene <ArrowRight size={14}/></button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="card">
+          <p className="eyebrow">Live activity feed</p>
+          <div className="activity-list">
+            {activity.map((a, i) => (
+              <div className="activity-item" key={i}>
+                <div className="avatar">{a.student.charAt(0)}</div>
+                <div>
+                  <strong>{a.student}</strong> {a.action} {a.target}<br />
+                  <span className="muted small">{new Date(a.time).toLocaleString()}</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
+      </div>
 
-        {/* Class Roster */}
-        <div>
-          <h3 className="text-xl mb-4">Class Roster</h3>
-          <div className="card p-0 overflow-hidden">
-            <div className="divide-y divide-[var(--border)]">
-              {roster.map((s, i) => (
-                <div key={i} className="p-4 flex items-center justify-between hover:bg-[#F9F8F5] transition-colors cursor-pointer">
-                  <div>
-                    <div className="font-bold text-[var(--ink)] text-sm mb-1">{s.name}</div>
-                    <div className="flex gap-1">
-                      {s.progress.map((p, idx) => (
-                        <div key={idx} className={`w-4 h-1.5 rounded-full ${
-                          p === 1 ? 'bg-[var(--forest)]' : 
-                          p === -1 ? 'bg-[var(--redpen)]' : 
-                          'bg-[#E4DECD]'
-                        }`} />
-                      ))}
-                    </div>
-                  </div>
-                  {s.status === 'stuck' ? (
-                    <AlertCircle size={16} className="text-[var(--redpen)]" />
-                  ) : (
-                    <Check size={16} className="text-[var(--forest)]" />
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="p-3 bg-[#F9F8F5] text-center border-t border-[var(--border)]">
-              <button className="text-[var(--sky)] text-sm font-bold hover:underline">View All Students</button>
-            </div>
-          </div>
+      <div className="card">
+        <div className="cycle-demo-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <p className="eyebrow">Concept graph health</p>
         </div>
+        <ConceptGraph data={graphData || null} masteryMap={masteryMap || {}} />
       </div>
     </div>
   );

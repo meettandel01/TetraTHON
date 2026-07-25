@@ -14,6 +14,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+from seed import seed_db
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
@@ -22,10 +24,9 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     logger.info("✅ Database tables created/verified")
     
-    # Auto-seed concepts
-    with SessionLocal() as db:
-        concepts.seed_concepts(db)
-        logger.info("✅ Concept taxonomy seeded/verified")
+    # Auto-seed all data
+    seed_db()
+    logger.info("✅ Database fully seeded")
     yield
     logger.info("🛑 Shutting down TetraTHON API server...")
 
