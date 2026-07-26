@@ -3,11 +3,12 @@ import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import Stepper from '../components/Stepper';
 import { useAuth } from '../context/AuthContext';
 import { lessonsApi } from '../services/api';
+import { XCircle } from 'lucide-react';
 
 export default function PracticePage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   
   const lesson = location.state?.lesson;
   const sessionId = location.state?.sessionId;
@@ -45,6 +46,9 @@ export default function PracticePage() {
       });
       
       const xpReward = res?.data?.xp_reward || (isCorrect ? 15 : 5);
+      if (res?.data?.total_xp) {
+        updateUser({ xp: res.data.total_xp });
+      }
       
       setFeedback({
         isCorrect,
@@ -72,7 +76,10 @@ export default function PracticePage() {
       setSubmitting(true);
       try {
         const timeSpent = Math.round((Date.now() - sessionStartTime) / 1000);
-        await lessonsApi.completeSession(user.student_id, lesson.id, timeSpent);
+        const res = await lessonsApi.completeSession(user.student_id, lesson.id, timeSpent);
+        if (res?.data?.total_xp) {
+            updateUser({ xp: res.data.total_xp });
+        }
         navigate('/student/summary', { state: { practiceScore: totalAnswered > 0 ? correctCount / totalAnswered : 0, correctCount, totalAnswered } });
       } catch (err) {
         console.error(err);
@@ -94,8 +101,11 @@ export default function PracticePage() {
         currentStep={3} 
       />
       <div className="card card-narrow">
-        <div className="practice-head">
-          <p className="eyebrow">Practice &middot; Question {currentIdx + 1} of {lesson.practice_questions.length}</p>
+        <div className="practice-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <p className="eyebrow" style={{ margin: 0 }}>Practice &middot; Question {currentIdx + 1} of {lesson.practice_questions.length}</p>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/student/setup')} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <XCircle size={16} /> Switch Topic
+          </button>
         </div>
         <h2 className="q-text">{q.text}</h2>
         

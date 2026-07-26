@@ -17,6 +17,7 @@ export default function DoubtPage() {
   
   const [result, setResult] = useState(null);
   const [escalated, setEscalated] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const fileInputRef = useRef(null);
 
   const TEACHER_NAME = user?.teacher_name || "your teacher";
@@ -36,6 +37,7 @@ export default function DoubtPage() {
     if (inputType === 'image' && !imageFile && !doubtText.trim()) return;
 
     setStage('scanning');
+    setFeedbackSubmitted(false);
     
     try {
       const res = await doubtsApi.ask(user.student_id, doubtText, mode, imageFile);
@@ -54,6 +56,7 @@ export default function DoubtPage() {
   };
 
   const doubtFeedback = async (up) => {
+    if (feedbackSubmitted) return;
     try {
       if (result && result.doubt_id) {
         await doubtsApi.submitFeedback(result.doubt_id, up);
@@ -61,6 +64,7 @@ export default function DoubtPage() {
       toast(up ? 'Thanks for the feedback! 👍' : 'Thanks — logged for review.', {
         icon: up ? '👍' : 'ℹ️',
       });
+      setFeedbackSubmitted(true);
     } catch (err) {
       console.error(err);
       toast.error('Failed to save feedback');
@@ -192,8 +196,14 @@ export default function DoubtPage() {
           </div>
           <div className="doubt-feedback-row">
             <span className="muted small">Was this helpful?</span>
-            <button className="icon-btn" onClick={() => doubtFeedback(true)}>👍</button>
-            <button className="icon-btn" onClick={() => doubtFeedback(false)}>👎</button>
+            {feedbackSubmitted ? (
+              <span className="muted small ml-2" style={{ marginLeft: '8px' }}>Feedback recorded</span>
+            ) : (
+              <>
+                <button className="icon-btn" onClick={() => doubtFeedback(true)}>👍</button>
+                <button className="icon-btn" onClick={() => doubtFeedback(false)}>👎</button>
+              </>
+            )}
             {escalated ? (
               <span className="escalated-pill">{result.requires_escalation ? '⚠ Auto-escalated' : '✓ Escalated'} to {TEACHER_NAME}</span>
             ) : (

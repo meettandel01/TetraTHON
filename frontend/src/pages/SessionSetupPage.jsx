@@ -1,15 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
-import { Play, ArrowRight, BookOpen, Layers } from 'lucide-react';
+import api, { dashboardApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { Play, ArrowRight, BookOpen, Layers, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
+function pct(v){ return Math.round(v*100) + '%'; }
+function masteryColor(score){
+  const hue = Math.max(0, Math.min(1, score)) * 122; // 0=red 122=green
+  return `hsl(${hue.toFixed(0)}, 58%, 42%)`;
+}
+
 export default function SessionSetupPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [syllabusTree, setSyllabusTree] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  const [masteryMap, setMasteryMap] = useState({});
+  const [recommendedNext, setRecommendedNext] = useState(null);
+
   const [selectedStandard, setSelectedStandard] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [selectedChapter, setSelectedChapter] = useState(null);
@@ -20,10 +31,26 @@ export default function SessionSetupPage() {
   }, []);
 
   const fetchSyllabus = async () => {
+    if (!user) return;
     try {
-      const res = await api.get('/concepts/tree');
-      setSyllabusTree(res.data);
-      if (res.data.length > 0) setSelectedStandard(res.data[0]);
+      const [treeRes, dashRes] = await Promise.all([
+        api.get('/concepts/tree'),
+        dashboardApi.get(user.student_id)
+      ]);
+      setSyllabusTree(treeRes.data);
+      if (treeRes.data.length > 0) setSelectedStandard(treeRes.data[0]);
+
+      const mMap = {};
+      if (dashRes.data?.concept_graph?.nodes) {
+        dashRes.data.concept_graph.nodes.forEach(n => {
+          mMap[n.id] = n.mastery !== null ? (n.mastery / 100) : 0;
+        });
+      }
+      setMasteryMap(mMap);
+      if (dashRes.data?.recommended_next) {
+        setRecommendedNext(dashRes.data.recommended_next.id);
+      }
+
     } catch (err) {
       toast.error('Failed to load syllabus');
     } finally {
@@ -47,9 +74,25 @@ export default function SessionSetupPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 md:p-8 space-y-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-extrabold text-[var(--color-text-primary)] mb-2">Setup Your Learning Session</h1>
-        <p className="text-[var(--color-text-secondary)]">Choose what you'd like to focus on today.</p>
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-extrabold text-[var(--color-text-primary)] mb-2">Setup Your Learning Session</h1>
+          <p className="text-[var(--color-text-secondary)]">Choose what you'd like to focus on today.</p>
+        </div>
+        <motion.div 
+          initial={{opacity: 0.5, scale: 0.95}}
+          animate={{opacity: selectedTopic ? 1 : 0.5, scale: selectedTopic ? 1 : 0.95}}
+        >
+          <button 
+            onClick={handleStart}
+            disabled={!selectedTopic}
+            className="btn flex items-center gap-2 px-8 py-3 text-sm font-extrabold rounded-full shadow-lg hover:scale-105 transition-all disabled:opacity-100 disabled:hover:scale-100"
+            style={{ background: 'var(--gradient-primary)', color: 'white', border: 'white' }}
+          >
+            START SESSION
+            <ArrowRight size={18} strokeWidth={3} />
+          </button>
+        </motion.div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -115,25 +158,49 @@ export default function SessionSetupPage() {
               <h2 className="text-sm font-bold text-[var(--color-text-secondary)] uppercase tracking-wider mb-4">Select Topic</h2>
               
               <div className="space-y-3 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                {topics.map(topic => (
-                  <div 
-                    key={topic.id}
-                    onClick={() => setSelectedTopic(topic)}
-                    className={`p-4 rounded-xl cursor-pointer transition-all ${selectedTopic?.id === topic.id ? 'bg-[var(--gradient-primary)] text-white shadow-md transform scale-[1.02]' : 'bg-[var(--color-bg-secondary)] hover:bg-[var(--color-border)] text-[var(--color-text-primary)]'}`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-lg ${selectedTopic?.id === topic.id ? 'bg-white/20' : 'bg-white shadow-sm'}`}>
-                        <Layers size={18} className={selectedTopic?.id === topic.id ? 'text-white' : 'text-[var(--color-accent-primary)]'} />
-                      </div>
-                      <div>
-                        <div className="font-bold">{topic.name}</div>
-                        <div className={`text-xs mt-1 ${selectedTopic?.id === topic.id ? 'text-white/80' : 'text-[var(--color-text-secondary)]'}`}>
-                          {topic.description || `Concept ${topic.concept_code || topic.id} · Adaptive learning session`}
+                {topics.map(topic => {
+                  const score = masteryMap[topic.id] || 0;
+                  const isRecommended = recommendedNext === topic.id;
+                  const isSelected = selectedTopic?.id === topic.id;
+                  
+                  return (
+                    <div 
+                      key={topic.id}
+                      onClick={() => setSelectedTopic(topic)}
+                      className={`p-4 rounded-xl cursor-pointer transition-all border-2 ${isSelected ? 'border-[var(--color-accent-primary)] bg-[var(--gradient-primary)] text-white shadow-md transform scale-[1.02]' : isRecommended ? 'border-[var(--color-primary)] bg-[var(--color-bg-secondary)]' : 'border-transparent bg-[var(--color-bg-secondary)] hover:border-[var(--color-border)] text-[var(--color-text-primary)]'}`}
+                    >
+                      {isRecommended && !isSelected && (
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-primary)] mb-2 flex items-center gap-1">
+                          <Star size={12} fill="currentColor" /> Recommended Next
+                        </div>
+                      )}
+                      <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-lg ${isSelected ? 'bg-white/20' : 'bg-white shadow-sm'}`}>
+                          <Layers size={18} className={isSelected ? 'text-white' : 'text-[var(--color-accent-primary)]'} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-bold flex justify-between items-center">
+                            <span>{topic.name}</span>
+                            {!isSelected && (
+                              <span className="text-xs font-semibold px-2 py-1 rounded-full bg-black/5" style={{ color: masteryColor(score) }}>
+                                {pct(score)}
+                              </span>
+                            )}
+                          </div>
+                          <div className={`text-xs mt-1 ${isSelected ? 'text-white/80' : 'text-[var(--color-text-secondary)]'}`}>
+                            {topic.description || `Concept ${topic.concept_code || topic.id} · Adaptive learning session`}
+                          </div>
+                          
+                          {isSelected && (
+                            <motion.div initial={{height:0, opacity:0}} animate={{height:'auto', opacity:1}} className="mt-3 text-xs bg-black/10 p-2 rounded">
+                              Current mastery: {pct(score)}. Ready to dive in?
+                            </motion.div>
+                          )}
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {topics.length === 0 && <div className="text-center p-8 text-gray-500">No topics added for this chapter yet.</div>}
               </div>
 
@@ -147,24 +214,7 @@ export default function SessionSetupPage() {
         </div>
       </div>
 
-      {/* Action Bar */}
-      <motion.div 
-        initial={{opacity: 0, y:20}}
-        animate={{opacity: selectedTopic ? 1 : 0, y: selectedTopic ? 0 : 20}}
-        className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-[var(--color-border)] shadow-lg flex justify-center z-40"
-      >
-        <button 
-          onClick={handleStart}
-          disabled={!selectedTopic}
-          className="btn flex items-center gap-2 px-12 py-4 text-lg font-bold rounded-full shadow-lg hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100"
-          style={{ background: 'var(--gradient-primary)', color: 'white', border: 'none' }}
-        >
-          <Play fill="currentColor" size={20} />
-          Start Session on {selectedTopic?.short_name || selectedTopic?.name}
-          <ArrowRight size={20} />
-        </button>
-      </motion.div>
-      <div className="h-24"></div> {/* padding for fixed footer */}
+
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Stepper from '../components/Stepper';
 import { useAuth } from '../context/AuthContext';
 import { lessonsApi } from '../services/api';
+import { XCircle } from 'lucide-react';
 
 export default function LessonPage() {
   const navigate = useNavigate();
@@ -27,7 +28,17 @@ export default function LessonPage() {
   const loadLesson = async () => {
     try {
       setLoading(true);
-      const res = await lessonsApi.getByLevel(user.level || 'Foundational', conceptId);
+      let cLevel = location.state?.conceptLevel;
+      if (!cLevel) {
+        try {
+           const clRes = await lessonsApi.getConceptLevel(user.student_id, conceptId);
+           cLevel = clRes.data.concept_level;
+        } catch(e) {
+           cLevel = user.level || 'Foundational';
+        }
+      }
+      
+      const res = await lessonsApi.getByLevel(cLevel || 'Foundational', conceptId);
       const matchedLesson = res.data;
       
       if (!matchedLesson) {
@@ -76,7 +87,12 @@ export default function LessonPage() {
         currentStep={2} 
       />
       <div className="card card-narrow paper-texture lesson-card">
-        <p className="eyebrow">Micro-lesson</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <p className="eyebrow" style={{ margin: 0 }}>Micro-lesson</p>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/student/setup')} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <XCircle size={16} /> Switch Topic
+          </button>
+        </div>
         <h2>{lesson.title}</h2>
         <p className="lesson-p"><strong>{lesson.content.intro}</strong></p>
         <div className="markdown-body" dangerouslySetInnerHTML={{ __html: lesson.content.explanation.replace(/\n/g, '<br/>') }} />

@@ -43,11 +43,11 @@ def login_pin(req: PinLoginRequest, db: Session = Depends(get_db)):
     else:
         try:
             uid = int(req.email_or_id)
-            user = db.query(User).filter(User.id == uid).first()
+            student = db.query(Student).filter(Student.id == uid).first()
+            if student:
+                user = db.query(User).filter(User.id == student.user_id).first()
             if not user:
-                student = db.query(Student).filter(Student.id == uid).first()
-                if student:
-                    user = db.query(User).filter(User.id == student.user_id).first()
+                user = db.query(User).filter(User.id == uid).first()
         except ValueError:
             pass
 

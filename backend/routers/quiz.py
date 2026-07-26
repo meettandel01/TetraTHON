@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Union
 import logging
 import random
 import json
@@ -19,29 +19,54 @@ class NextQuestionRequest(BaseModel):
     exclude_ids: List[str] = []
 
 class QuizSubmitRequest(BaseModel):
-    student_id: str
+    student_id: Union[str, int]
     concept_id: int
     answers: list # list of dicts: { question_id, selected_option, is_correct, difficulty, concept_tag }
 
 def get_question_by_concept_difficulty(db: Session, concept_id: int, difficulty: str, exclude_ids: list):
+    # 1. Try exact match (concept + difficulty + diagnostic)
     q = db.query(ContentItem).filter(
         ContentItem.concept_id == concept_id,
         ContentItem.difficulty == difficulty,
         ContentItem.usage_type == "diagnostic"
     ).all()
     
+    # 2. Fallback to any usage_type (e.g. practice) for this concept + difficulty
+    if not q:
+        q = db.query(ContentItem).filter(
+            ContentItem.concept_id == concept_id,
+            ContentItem.difficulty == difficulty
+        ).all()
+        
+    # 3. Fallback to ANY question for this concept regardless of difficulty
+    if not q:
+        q = db.query(ContentItem).filter(
+            ContentItem.concept_id == concept_id
+        ).all()
+        
+    # 4. Ultimate fallback: if concept is totally empty, pick ANY question in the database
+    if not q:
+        q = db.query(ContentItem).all()
+    
     available = [item for item in q if str(item.id) not in exclude_ids]
     if not available:
-        return None
+        # If all questions in this set were excluded, try any question in the whole DB that hasn't been shown
+        all_q = db.query(ContentItem).all()
+        available = [item for item in all_q if str(item.id) not in exclude_ids]
+        if not available:
+            return None
     
     choice = random.choice(available)
+    concept_obj = db.query(Concept).get(choice.concept_id)
+    concept_name = concept_obj.name if concept_obj else "General Math"
+    
     return {
         "id": str(choice.id),
         "text": choice.text,
         "options": json.loads(choice.options) if choice.options else {},
         "correct": choice.correct,
         "difficulty": choice.difficulty,
-        "concept": db.query(Concept).get(choice.concept_id).name,
+        "concept": concept_name,
         "explanation": choice.explanation
     }
 
@@ -73,11 +98,13 @@ def get_adaptive_question(db: Session, concept_id: int, last_was_correct: Option
 @router.get("/questions")
 def get_initial_questions(concept_id: int, db: Session = Depends(get_db)):
     """
-    Start a diagnostic quiz. Fetches the first 'medium' question for the given concept.
+    Start a diagnostic quiz. Fetches the first question for the given concept.
     """
     first_q = get_question_by_concept_difficulty(db, concept_id, "medium", [])
     if not first_q:
         first_q = get_question_by_concept_difficulty(db, concept_id, "easy", [])
+    if not first_q:
+        first_q = get_question_by_concept_difficulty(db, concept_id, "hard", [])
         
     if not first_q:
         raise HTTPException(status_code=404, detail="No diagnostic questions found for this concept")
@@ -102,7 +129,8 @@ def get_next_question(req: NextQuestionRequest, db: Session = Depends(get_db)):
 
 @router.post("/submit")
 def submit_quiz(request: QuizSubmitRequest, db: Session = Depends(get_db)):
-    student = db.query(Student).filter(Student.user_id == int(request.student_id.replace("s","")) if request.student_id.startswith("s") else Student.id == int(request.student_id)).first()
+    sid_str = str(request.student_id)
+    student = db.query(Student).filter(Student.user_id == int(sid_str.replace("s","")) if sid_str.startswith("s") else Student.id == int(sid_str)).first()
     if not student:
         raise HTTPException(404, "Student not found")
 
@@ -136,26 +164,12 @@ def submit_quiz(request: QuizSubmitRequest, db: Session = Depends(get_db)):
 
     percent = (weighted_score / max_possible_weight) if max_possible_weight > 0 else 0
 
-    # Determine Level Placement
-    level = "Foundational"
-    if percent >= 0.8:
-        level = "Advanced"
-    elif percent >= 0.4:
-        level = "Grade-Level"
-        
-    # Determine Archetype
-    archetype = "strong"
-    if level == "Foundational":
-        archetype = "foundStuck" if percent < 0.2 else "foundImproving"
-    elif level == "Grade-Level":
-        archetype = "gradeConsistent"
-
-    # Update Student Profile
-    student.level = level
-    student.archetype = archetype
-    # Diagnostic bonus
-    xp_gained = 100 + (percent * 50)
-    student.xp += int(xp_gained)
+    if percent <= 0.40:
+        concept_level = "Foundational"
+    elif percent <= 0.70:
+        concept_level = "Grade-Level"
+    else:
+        concept_level = "Advanced"
 
     # Update Concept Mastery
     mastery = db.query(StudentConceptMastery).filter_by(
@@ -166,10 +180,11 @@ def submit_quiz(request: QuizSubmitRequest, db: Session = Depends(get_db)):
         mastery = StudentConceptMastery(
             student_id=student.id,
             concept_id=request.concept_id,
+            concept_level=concept_level,
             mastery_level=percent,
             attempts=1,
             correct=correct_count,
-            is_weak=(level == "Foundational")
+            is_weak=(percent < 0.4)
         )
         db.add(mastery)
     else:
@@ -177,14 +192,41 @@ def submit_quiz(request: QuizSubmitRequest, db: Session = Depends(get_db)):
         mastery.attempts += 1
         mastery.correct += correct_count
         mastery.is_weak = (mastery.mastery_level < 0.4)
+        mastery.concept_level = concept_level
 
+    db.commit()
+
+    from routers.gamification import recalculate_student_mastery, log_xp_transaction, check_and_award_badges, update_streak
+    recalculate_student_mastery(student.id, db)
+    
+    # Diagnostic bonus
+    xp_gained = int(100 + (percent * 50))
+    student.xp += xp_gained
+    db.commit()
+    
+    log_xp_transaction(student.id, xp_gained, "diagnostic", db)
+    update_streak(student.id, db)
+    badges_earned = check_and_award_badges(student.id, db)
+
+    db.refresh(student)
+    # Determine Archetype
+    archetype = "strong"
+    if student.level == "Foundational":
+        archetype = "foundStuck" if student.mastery_score < 0.2 else "foundImproving"
+    elif student.level == "Grade-Level":
+        archetype = "gradeConsistent"
+    student.archetype = archetype
     db.commit()
 
     return {
         "status": "success",
         "score": f"{correct_count}/{total}",
+        "correct_count": correct_count,
+        "total_questions": total,
         "percentage": round(percent * 100),
-        "placement_level": level,
+        "placement_level": student.level,
+        "concept_level": concept_level,
         "archetype": archetype,
-        "xp_gained": int(xp_gained)
+        "xp_gained": xp_gained,
+        "total_xp": student.xp
     }

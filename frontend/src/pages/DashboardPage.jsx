@@ -53,11 +53,13 @@ export default function DashboardPage() {
         mastery: masteryMap,
         badgesEarned: xpRes.data.badges ? xpRes.data.badges.length : 0,
         resume: hasActiveSession,
-        concepts: concepts
+        concepts: concepts,
+        recommended: dashRes.data.recommended_next || null,
+        sessions: dashRes.data.sessions_list || []
       });
     } catch (err) {
       console.error(err);
-      setStats({ xp: 0, daily_xp_cap: 500, level: null, streak: 0, mastery: {}, badgesEarned: 0, resume: false, concepts: [] });
+      setStats({ xp: 0, daily_xp_cap: 500, level: null, streak: 0, mastery: {}, badgesEarned: 0, resume: false, concepts: [], recommended: null, sessions: [] });
     } finally {
       setLoading(false);
     }
@@ -67,11 +69,24 @@ export default function DashboardPage() {
     return <div className="screen"><div className="center-card" style={{padding: '40px'}}><div className="spinner"></div></div></div>;
   }
 
-  const weakest = stats.concepts.length > 0 
+  const weakest = stats.recommended || (stats.concepts.length > 0 
     ? stats.concepts.slice().sort((a,b)=>(stats.mastery[a.id]||0)-(stats.mastery[b.id]||0))[0]
-    : { name: 'Unknown Concept', id: 'unknown' };
+    : { name: 'Unknown Concept', id: 'unknown' });
   const resume = stats.resume;
   const badgesEarned = stats.badgesEarned;
+
+  const handleContinueSession = async () => {
+    try {
+      const res = await api.get(`/lessons/session/active/${user.student_id}`);
+      if (res.data && res.data.active !== false && res.data.concept_id) {
+        navigate('/student/lesson', { state: { conceptId: res.data.concept_id } });
+      } else {
+        navigate('/student/setup');
+      }
+    } catch (e) {
+      navigate('/student/setup');
+    }
+  };
 
   return (
     <div className="screen">
@@ -80,7 +95,7 @@ export default function DashboardPage() {
           <h1>Namaste, {user.name.split(' ')[0]} 👋</h1>
           <p className="page-sub">
             {stats.level ? (
-              <>You're on the <strong>{stats.level}</strong> track for Linear Equations.</>
+              <>You're on the <strong>{stats.level}</strong> track. Let's keep learning.</>
             ) : (
               "You haven't taken a diagnostic yet — let's find your starting point."
             )}
@@ -91,12 +106,12 @@ export default function DashboardPage() {
 
       <div className="grid-2">
         <div className="card card-highlight">
-          <p className="eyebrow">Chapter 2 · Linear Equations in One Variable</p>
+          <p className="eyebrow">Current Focus</p>
           {resume ? (
             <>
               <h3>Resume where you left off</h3>
               <p className="muted">You're mid-session — pick up right at your next step.</p>
-              <button className="btn btn-primary" onClick={() => navigate('/student/setup')}>Continue session →</button>
+              <button className="btn btn-primary" onClick={handleContinueSession}>Continue session →</button>
             </>
           ) : (
             <>
@@ -144,6 +159,48 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Session History */}
+      {stats.sessions && stats.sessions.length > 0 && (
+        <div className="card" style={{ marginTop: '30px' }}>
+          <p className="eyebrow">Recent Activity</p>
+          <div className="space-y-4 mt-4">
+            {stats.sessions.slice(0, 5).map(session => (
+              <div key={session.id} className="flex justify-between items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                <div>
+                  <h4 className="font-bold text-gray-800">{session.lesson_title || session.concept_name || 'Learning Session'}</h4>
+                  <p className="text-sm text-gray-500">
+                    {new Date(session.started_at).toLocaleDateString()} · {Math.round(session.time_spent_seconds / 60)} min
+                  </p>
+                </div>
+                <div className="flex items-center gap-4">
+                  {session.completed ? (
+                    <>
+                      <span className="text-sm font-semibold text-green-600 bg-green-50 px-2 py-1 rounded">Completed</span>
+                      <button 
+                        className="btn btn-ghost btn-sm" 
+                        onClick={() => navigate('/student/learning-path')}
+                      >
+                        Review
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm font-semibold text-yellow-600 bg-yellow-50 px-2 py-1 rounded">In Progress</span>
+                      <button 
+                        className="btn btn-primary btn-sm" 
+                        onClick={() => navigate('/student/lesson', { state: { conceptId: session.concept_id } })}
+                      >
+                        Continue
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

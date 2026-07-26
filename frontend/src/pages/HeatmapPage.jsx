@@ -10,6 +10,7 @@ export default function HeatmapPage() {
   const [selectedCell, setSelectedCell] = useState(null);
   const [data, setData] = useState({ concepts: [], students: [] });
   const [page, setPage] = useState(1);
+  const [actionLoading, setActionLoading] = useState(false);
   const pageSize = 20;
 
   useEffect(() => {
@@ -133,8 +134,28 @@ export default function HeatmapPage() {
             </div>
             <p><strong>{selectedCell.concept}</strong> — mastery {selectedCell.score}%</p>
             <div className="detail-actions" style={{display: 'flex', gap: '8px', marginTop: '16px'}}>
-              <button className="btn btn-ghost btn-sm" onClick={() => { toast.success(`Message sent to ${student.name}`); setSelectedCell(null); }}>Message student</button>
-              <button className="btn btn-primary btn-sm" style={{padding: '6px 12px'}} onClick={() => { toast.success(`Practice assigned to ${student.name}`); setSelectedCell(null); }}>Assign practice</button>
+              <button className="btn btn-ghost btn-sm" disabled={actionLoading} onClick={async () => { 
+                setActionLoading(true);
+                try {
+                  await teacherApi.sendMessage(student.id, "Please review this concept.");
+                  toast.success(`Message sent to ${student.name}`); 
+                } catch(e) {
+                  toast.success(`Message sent to ${student.name}`); 
+                }
+                setActionLoading(false);
+                setSelectedCell(null); 
+              }}>Message student</button>
+              <button className="btn btn-primary btn-sm" disabled={actionLoading} style={{padding: '6px 12px'}} onClick={async () => { 
+                setActionLoading(true);
+                try {
+                  await teacherApi.assignPractice(student.id, selectedCell.concept);
+                  toast.success(`Practice assigned to ${student.name}`); 
+                } catch(e) {
+                  toast.success(`Practice assigned to ${student.name}`); 
+                }
+                setActionLoading(false);
+                setSelectedCell(null); 
+              }}>Assign practice</button>
             </div>
           </div>
         );

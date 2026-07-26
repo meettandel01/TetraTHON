@@ -71,12 +71,23 @@ export default function AdminContentPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    
+    let payload = { ...formData };
+    if (payload.type === 'mcq' && payload.options && typeof payload.options === 'string') {
+      try {
+        payload.options = JSON.parse(payload.options);
+      } catch (err) {
+        toast.error('Invalid JSON format in options field');
+        return;
+      }
+    }
+
     try {
       if (editingItem) {
-        await adminApi.updateContentItem(editingItem.id, formData);
+        await adminApi.updateContentItem(editingItem.id, payload);
         toast.success('Content updated successfully');
       } else {
-        await adminApi.createContentItem(formData);
+        await adminApi.createContentItem(payload);
         toast.success('Content created successfully');
       }
       setIsModalOpen(false);

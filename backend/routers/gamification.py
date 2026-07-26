@@ -12,6 +12,36 @@ class XpRequest(BaseModel):
     amount: int
     source: str
 
+def recalculate_student_mastery(student_id: int, db: Session):
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        return
+    
+    from database import StudentConceptMastery
+    masteries = db.query(StudentConceptMastery).filter(StudentConceptMastery.student_id == student_id).all()
+    if not masteries:
+        student.mastery_score = 0.0
+        return
+        
+    total_score = sum(m.mastery_level for m in masteries)
+    student.mastery_score = total_score / len(masteries)
+    
+    # Recalculate level based on average mastery
+    avg_mastery = student.mastery_score
+    if avg_mastery >= 0.8:
+        student.level = "Advanced"
+    elif avg_mastery >= 0.4:
+        student.level = "Grade-Level"
+    else:
+        student.level = "Foundational"
+        
+    db.commit()
+
+def log_xp_transaction(student_id: int, amount: int, source: str, db: Session):
+    tx = XpTransaction(student_id=student_id, amount=amount, source=source)
+    db.add(tx)
+    db.commit()
+
 def check_and_award_badges(student_id: int, db: Session):
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:

@@ -47,11 +47,11 @@ export const studentApi = {
 
 // ─── Quiz API ──────────────────────────────────────────────────────────────
 export const quizApi = {
-  getQuestions: () => api.get('/quiz/questions'),
+  getQuestions: (conceptId = 1) => api.get(`/quiz/questions?concept_id=${conceptId}`),
   checkAnswer: (questionId, selected) =>
     api.get(`/quiz/check-answer/${questionId}/${selected}`),
   submit: (student_id, concept_id, answers) =>
-    api.post('/quiz/submit', { student_id, concept_id, answers }),
+    api.post('/quiz/submit', { student_id: String(student_id), concept_id, answers }),
 };
 
 // ─── Lessons API ───────────────────────────────────────────────────────────
@@ -62,6 +62,8 @@ export const lessonsApi = {
   completeSession: (student_id, lesson_id, time_spent_seconds) =>
     api.post('/lessons/session/complete', { student_id, lesson_id, time_spent_seconds }),
   submitPractice: (data) => api.post('/lessons/practice/answer', data),
+  getActiveSession: (studentId) => api.get(`/lessons/session/active/${studentId}`),
+  getConceptLevel: (studentId, conceptId) => api.get(`/lessons/concept-level/${studentId}/${conceptId}`),
 }
 
 // ─── Doubts API ────────────────────────────────────────────────────────────
@@ -83,7 +85,7 @@ export const doubtsApi = {
 
 // ─── Dashboard API ─────────────────────────────────────────────────────────
 export const dashboardApi = {
-  get: (student_id) => api.get(`/dashboard/${student_id}`),
+  get: (student_id, chapter_id = null) => api.get(`/dashboard/${student_id}${chapter_id ? `?chapter_id=${chapter_id}` : ''}`),
 }
 
 
@@ -100,6 +102,8 @@ export const teacherApi = {
   getRoster: (section) => api.get(`/teacher/roster${section ? `?section=${encodeURIComponent(section)}` : ''}`),
   getHeatmap: (section) => api.get(`/teacher/heatmap?section=${encodeURIComponent(section)}`),
   getItemAnalysis: () => api.get(`/teacher/item-analysis`),
+  assignPractice: (studentId, concept) => api.post('/teacher/assign-practice', { student_id: studentId, concept }),
+  sendMessage: (studentId, message) => api.post('/teacher/message', { student_id: studentId, message })
 }
 
 // ─── Parent API ────────────────────────────────────────────────────────────
@@ -109,6 +113,8 @@ export const parentApi = {
   getAlerts: (childId) => api.get(`/parent/alerts/${childId}`),
   getSettings: (childId) => api.get(`/parent/settings/${childId}`),
   updateSettings: (childId, data) => api.post(`/parent/settings/${childId}`, data),
+  messageTeacher: (childId, message) => api.post(`/parent/message/${childId}`, { message }),
+  getAlertLog: (childId, alertId) => api.get(`/parent/alerts/${childId}/log/${alertId}`)
 }
 
 // ─── Admin API ─────────────────────────────────────────────────────────────

@@ -21,10 +21,10 @@ export default function DiagnosticResultPage() {
     return <Navigate to="/student/setup" replace />;
   }
 
-  const score = results.score ?? 0;
+  const score = results.percentage !== undefined ? results.percentage / 100 : 0;
   const correctCount = results.correct_count ?? 0;
   const totalQuestions = results.total_questions ?? 5;
-  const level = results.level ?? 'Foundational';
+  const level = results.concept_level || results.placement_level || 'Foundational';
 
   const angle = Math.round(score * 180);
   const x2 = 100 + 80 * Math.cos(Math.PI - (angle * Math.PI / 180));
@@ -69,9 +69,14 @@ export default function DiagnosticResultPage() {
         <div className="result-note">
           <strong>Why this matters:</strong> boundary scores classify conservatively — a student scoring exactly on a threshold is placed in the lower, more supportive track by design.
         </div>
-        <button className="btn btn-primary btn-block" onClick={() => navigate('/student/learning-path', { state: { concept_id: conceptId } })}>
-          See my learning path &rarr;
-        </button>
+        <div className="flex flex-col gap-3 mt-4">
+          <button className="btn btn-primary btn-block" onClick={() => navigate('/student/lesson', { state: { conceptId: conceptId, conceptLevel: level } })}>
+            Start lesson &rarr;
+          </button>
+          <button className="btn btn-ghost btn-block text-sm" onClick={() => navigate('/student/learning-path', { state: { concept_id: conceptId } })}>
+            View full learning path
+          </button>
+        </div>
       </div>
     </div>
   );

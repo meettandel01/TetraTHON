@@ -77,7 +77,14 @@ export default function ParentOverview() {
           <div>
             <h3 className="text-[var(--redpen)] mb-1 text-lg">{alert.title}</h3>
             <p className="text-[var(--redpen)] font-medium text-sm mb-3">{alert.description}</p>
-            <button onClick={() => toast('No conversation log recorded for this event yet', { icon: 'ℹ️' })} className="btn bg-white border border-[var(--redpen)] text-[var(--redpen)] text-[13px] py-1.5 px-4 shadow-sm hover:shadow-md">
+            <button onClick={async () => {
+              try {
+                const res = await parentApi.getAlertLog(user?.child_id || user?.id, alert.id);
+                toast(`Log: ${res.data.log || 'No conversation details available.'}`, { icon: '📝' });
+              } catch (e) {
+                toast('No conversation log recorded for this event yet', { icon: 'ℹ️' });
+              }
+            }} className="btn bg-white border border-[var(--redpen)] text-[var(--redpen)] text-[13px] py-1.5 px-4 shadow-sm hover:shadow-md">
               View Conversation Log
             </button>
           </div>

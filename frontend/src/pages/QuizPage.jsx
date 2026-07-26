@@ -11,7 +11,7 @@ const DEFAULT_TOTAL_QUESTIONS = 5;
 export default function QuizPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const conceptId = location.state?.concept_id || 1; // Default to 1 if directly accessed
   
   const [questions, setQuestions] = useState([]);
@@ -63,6 +63,7 @@ export default function QuizPage() {
     if (currentIdx + 1 >= totalTarget) {
       try {
         const res = await quizApi.submit(user.student_id, conceptId, updatedAnswers);
+        updateUser({ level: res.data.placement_level, xp: res.data.total_xp });
         navigate('/student/diagnostic-result', { state: { results: res.data, concept_id: conceptId } });
       } catch (err) {
         console.error('Failed to submit quiz:', err);
@@ -85,12 +86,14 @@ export default function QuizPage() {
           setSelected(null);
         } else {
           const res = await quizApi.submit(user.student_id, conceptId, updatedAnswers);
+          updateUser({ level: res.data.placement_level, xp: res.data.total_xp });
           navigate('/student/diagnostic-result', { state: { results: res.data, concept_id: conceptId } });
         }
       } catch (err) {
         console.error("Failed to fetch next question, submitting completed answers:", err);
         try {
           const res = await quizApi.submit(user.student_id, conceptId, updatedAnswers);
+          updateUser({ level: res.data.placement_level, xp: res.data.total_xp });
           navigate('/student/diagnostic-result', { state: { results: res.data, concept_id: conceptId } });
         } catch (submitErr) {
           console.error('Failed to submit quiz after next-question error:', submitErr);

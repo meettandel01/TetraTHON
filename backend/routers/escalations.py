@@ -94,6 +94,13 @@ def respond_escalation(escalation_id: int, data: ResponseModel, db: Session = De
     
     esc.status = "resolved"
     esc.response_text = data.response_text
+    
+    from database import Doubt
+    doubt = db.query(Doubt).filter(Doubt.student_id == esc.student_id, Doubt.question_text == esc.doubt_text).first()
+    if doubt:
+        doubt.resolved = True
+        doubt.response_text = "Teacher Response: " + data.response_text
+        
     db.commit()
     return {"message": "Escalation resolved successfully"}
 

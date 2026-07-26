@@ -37,10 +37,11 @@ export default function ResultPage() {
         streak: xpRes.data.streak || 0,
         mastery: masteryMap,
         badgesEarned: xpRes.data.badges ? xpRes.data.badges.length : 0,
+        recommended: dashRes.data.recommended_next || null,
       });
     } catch (err) {
       console.error(err);
-      setStats({ xp: 0, streak: 0, mastery: {}, badgesEarned: 0 });
+      setStats({ xp: 0, streak: 0, mastery: {}, badgesEarned: 0, recommended: null });
     } finally {
       setLoading(false);
     }
@@ -107,9 +108,23 @@ export default function ResultPage() {
         </div>
 
         <p className="muted small center">Your teacher's dashboard has already refreshed with this activity.</p>
-        <div className="summary-actions">
+        {stats.recommended && (
+          <div className="mt-8 p-4 bg-[var(--color-bg-secondary)] rounded-xl border border-[var(--color-border)] text-left">
+            <h3 className="text-sm font-bold text-[var(--color-text-secondary)] uppercase tracking-wider mb-1">Recommended Next</h3>
+            <p className="font-bold text-lg mb-2">{stats.recommended.name}</p>
+            <p className="text-sm text-[var(--color-text-secondary)] mb-4">Keep the momentum going. This is the best next step for you.</p>
+            <button 
+              className="btn btn-primary w-full" 
+              onClick={() => navigate('/student/lesson', { state: { conceptId: stats.recommended.id } })}
+            >
+              Continue learning &rarr;
+            </button>
+          </div>
+        )}
+
+        <div className="summary-actions mt-6">
           <button className="btn btn-ghost" onClick={endSession}>Back to dashboard</button>
-          <button className="btn btn-primary" onClick={() => navigate('/student/learning-path')}>View learning path &rarr;</button>
+          <button className="btn btn-ghost" onClick={() => navigate('/student/learning-path')}>View learning path &rarr;</button>
         </div>
       </div>
     </div>

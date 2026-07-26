@@ -10,8 +10,10 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+from typing import Optional
+
 @router.get("/{student_id}")
-def get_dashboard(student_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_dashboard(student_id: int, chapter_id: Optional[str] = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Get full dashboard data for a student."""
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
@@ -20,6 +22,25 @@ def get_dashboard(student_id: int, db: Session = Depends(get_db), current_user: 
     # Session stats
     sessions = db.query(LearningSession).filter(LearningSession.student_id == student_id).all()
     completed_sessions = [s for s in sessions if s.completed]
+    
+    sessions_list = []
+    for s in sorted(sessions, key=lambda x: x.started_at, reverse=True)[:10]:
+        concept_name = s.lesson_title
+        if s.concept_id:
+            c = db.query(Concept).filter(Concept.id == s.concept_id).first()
+            if c:
+                concept_name = c.name
+        sessions_list.append({
+            "id": s.id,
+            "concept_id": s.concept_id,
+            "concept_name": concept_name,
+            "level": s.level,
+            "completed": s.completed,
+            "score": s.score,
+            "started_at": s.started_at.isoformat() if s.started_at else None,
+            "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+            "time_spent_seconds": s.time_spent_seconds,
+        })
 
     # Quiz performance
     quiz_attempts = db.query(QuizAttempt).filter(QuizAttempt.student_id == student_id).all()
@@ -34,6 +55,24 @@ def get_dashboard(student_id: int, db: Session = Depends(get_db), current_user: 
         StudentConceptMastery.student_id == student_id
     ).all()
     weak_concepts = [m for m in masteries if m.is_weak]
+    
+    recommended_next = None
+    if masteries:
+        weakest = min(masteries, key=lambda m: m.mastery_level)
+        wc_concept = db.query(Concept).filter(Concept.id == weakest.concept_id).first()
+        recommended_next = {
+            "id": weakest.concept_id,
+            "name": wc_concept.name if wc_concept else "Unknown",
+            "mastery_level": round(weakest.mastery_level * 100, 1)
+        }
+    else:
+        first_concept = db.query(Concept).first()
+        if first_concept:
+            recommended_next = {
+                "id": first_concept.id,
+                "name": first_concept.name,
+                "mastery_level": 0.0
+            }
 
     # Quiz breakdown by concept
     concept_performance = {}
@@ -47,8 +86,14 @@ def get_dashboard(student_id: int, db: Session = Depends(get_db), current_user: 
 
     # Build the full concept graph with chapters and topics
     from database import Chapter
-    all_chapters = db.query(Chapter).all()
-    all_concepts = db.query(Concept).all()
+    all_chapters_query = db.query(Chapter)
+    all_concepts_query = db.query(Concept)
+    if chapter_id:
+        all_chapters_query = all_chapters_query.filter(Chapter.id == int(chapter_id))
+        all_concepts_query = all_concepts_query.filter(Concept.chapter_id == int(chapter_id))
+        
+    all_chapters = all_chapters_query.all()
+    all_concepts = all_concepts_query.all()
     concept_graph = {"nodes": [], "edges": []}
     
     chapter_map = {ch.id: ch.name for ch in all_chapters}
@@ -79,7 +124,8 @@ def get_dashboard(student_id: int, db: Session = Depends(get_db), current_user: 
             "name": c.name,
             "parent_id": parent_node_id,
             "mastery": pct,
-            "status": status
+            "status": status,
+            "concept_level": m.concept_level if c.id in mastery_by_concept else None
         })
         if parent_node_id:
             concept_graph["edges"].append({
@@ -107,6 +153,8 @@ def get_dashboard(student_id: int, db: Session = Depends(get_db), current_user: 
             "doubts_asked": len(doubts),
             "weak_concepts_count": len(weak_concepts),
         },
+        "sessions_list": sessions_list,
+        "recommended_next": recommended_next,
         "concept_performance": concept_performance,
         "concept_graph": concept_graph,
         "chapters": [{"id": ch.id, "name": ch.name, "number": ch.chapter_number or ch.id} for ch in all_chapters],

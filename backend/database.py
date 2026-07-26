@@ -109,6 +109,7 @@ class Session(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    concept_id = Column(Integer, nullable=True)
     lesson_id = Column(String(50), nullable=False)
     lesson_title = Column(String(200), nullable=True)
     level = Column(String(20), nullable=True)
@@ -201,6 +202,7 @@ class StudentConceptMastery(Base):
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
     concept_id = Column(Integer, ForeignKey("concepts.id"), nullable=False)
+    concept_level = Column(String(20), nullable=True)
     mastery_level = Column(Float, default=0.0)  # 0.0 to 1.0
     attempts = Column(Integer, default=0)
     correct = Column(Integer, default=0)

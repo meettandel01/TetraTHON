@@ -64,14 +64,14 @@ Taxonomy list: {', '.join(taxonomy_names)}"""
         full_prompt = f"{system_prompt}\n\nStudent's question: {question}"
 
         if image_data:
-            model = genai.GenerativeModel('gemini-2.0-flash')
+            model = genai.GenerativeModel('gemini-3.1-flash-lite')
             import PIL.Image
             import io
             image_bytes_raw = base64.b64decode(image_data)
             img = PIL.Image.open(io.BytesIO(image_bytes_raw))
             response = model.generate_content([full_prompt, img])
         else:
-            model = genai.GenerativeModel('gemini-2.0-flash')
+            model = genai.GenerativeModel('gemini-3.1-flash-lite')
             response = model.generate_content(full_prompt)
 
         logger.info(f"✅ Gemini response generated for mode: {mode}")
@@ -194,8 +194,9 @@ async def ask_doubt(
             db.add(mastery)
             
         mastery.attempts += 1
-        # E.g. asking a direct doubt implies weakness, asking socratic might be neutral, let's just mark it
-        mastery.is_weak = True
+        # Socratic doubts or direct doubts might imply weakness, but don't overwrite if student is already strong
+        if mastery.mastery_level < 0.5:
+            mastery.is_weak = True
         
         # Sibling/Child concepts that are also weak
         c_obj = next((c for c in all_concepts if c.id == concept_id), None)

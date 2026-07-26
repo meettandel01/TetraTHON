@@ -16,6 +16,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login/pin")
 
 def verify_pin(plain_pin: str, hashed_pin: str) -> bool:
+    if not hashed_pin:
+        return False
     return bcrypt.checkpw(plain_pin.encode('utf-8'), hashed_pin.encode('utf-8'))
 
 def get_pin_hash(pin: str) -> str:

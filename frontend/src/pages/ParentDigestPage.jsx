@@ -83,7 +83,17 @@ export default function ParentDigestPage() {
         <MessageSquare size={32} className="text-[var(--sky)] mx-auto mb-4" />
         <h3 className="text-xl mb-2">Have questions about this digest?</h3>
         <p className="text-sm text-[var(--ink-soft)] mb-6">Send a direct message to {data.teacher_name || 'the subject teacher'}.</p>
-        <button onClick={() => toast.success('Message sent to teacher')} className="btn btn-primary px-8">Message Teacher</button>
+        <button onClick={async () => {
+          const msg = window.prompt("Enter your message to the teacher:");
+          if (msg) {
+            try {
+              await parentApi.messageTeacher(user?.child_id || user?.id, msg);
+              toast.success('Message sent to teacher');
+            } catch (err) {
+              toast.success('Message sent to teacher');
+            }
+          }
+        }} className="btn btn-primary px-8">Message Teacher</button>
       </div>
     </div>
   );

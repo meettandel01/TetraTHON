@@ -174,7 +174,17 @@ def seed_db():
             
             # Science Force (s1)
             ContentItem(concept_id=c_map["s1"], type="mcq", text="Which of the following is a non-contact force?", options=json.dumps({"A":"Friction","B":"Tension","C":"Magnetic Force","D":"Applied Force"}), correct="C", explanation="Magnets can exert force from a distance.", difficulty="easy", usage_type="diagnostic"),
-            ContentItem(concept_id=c_map["s1"], type="mcq", text="The SI unit of force is:", options=json.dumps({"A":"Joule","B":"Newton","C":"Pascal","D":"Watt"}), correct="B", explanation="Force is measured in Newtons (N).", difficulty="easy", usage_type="practice")
+            ContentItem(concept_id=c_map["s1"], type="mcq", text="The SI unit of force is:", options=json.dumps({"A":"Joule","B":"Newton","C":"Pascal","D":"Watt"}), correct="B", explanation="Force is measured in Newtons (N).", difficulty="easy", usage_type="practice"),
+
+            # Word Problems (c3)
+            ContentItem(concept_id=c_map["c3"], type="mcq", text="If 3 times a number is 21, what is the number?", options=json.dumps({"A":"5","B":"7","C":"9","D":"63"}), correct="B", explanation="21 ÷ 3 = 7", difficulty="easy", usage_type="diagnostic"),
+            ContentItem(concept_id=c_map["c3"], type="mcq", text="Rahul is 4 years older than twice his brother's age. If Rahul is 14, how old is his brother?", options=json.dumps({"A":"5","B":"6","C":"7","D":"8"}), correct="A", explanation="2x + 4 = 14 -> 2x = 10 -> x = 5", difficulty="medium", usage_type="diagnostic"),
+            ContentItem(concept_id=c_map["c3"], type="mcq", text="The sum of three consecutive integers is 72. What is the largest integer?", options=json.dumps({"A":"23","B":"24","C":"25","D":"26"}), correct="C", explanation="3x + 3 = 72 -> x = 23. Largest is 25.", difficulty="hard", usage_type="diagnostic"),
+
+            # Roots of Quadratics (q1)
+            ContentItem(concept_id=c_map["q1"], type="mcq", text="What are the roots of x² - 9 = 0?", options=json.dumps({"A":"3 and -3","B":"9 and -9","C":"0 and 3","D":"3 and 3"}), correct="A", explanation="x² = 9, so x = ±3", difficulty="easy", usage_type="diagnostic"),
+            ContentItem(concept_id=c_map["q1"], type="mcq", text="Find the roots of the equation x² - 5x + 6 = 0.", options=json.dumps({"A":"2 and 3","B":"-2 and -3","C":"1 and 6","D":"-1 and -6"}), correct="A", explanation="(x-2)(x-3) = 0 -> x = 2 or 3", difficulty="medium", usage_type="diagnostic"),
+            ContentItem(concept_id=c_map["q1"], type="mcq", text="For what value of k does x² + 4x + k = 0 have equal roots?", options=json.dumps({"A":"2","B":"4","C":"8","D":"16"}), correct="B", explanation="Discriminant b² - 4ac = 0 -> 16 - 4k = 0 -> k = 4", difficulty="hard", usage_type="diagnostic")
         ]
         db.add_all(questions)
         db.commit()
