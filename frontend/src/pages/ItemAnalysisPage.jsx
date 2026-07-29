@@ -36,8 +36,8 @@ export default function ItemAnalysisPage() {
     return <div className="screen"><div className="center-card" style={{padding: '40px'}}><div className="spinner"></div></div></div>;
   }
 
-  const rows = items.filter(it => tab === 'all' ? true : tab === 'flagged' ? it.flag : it.source.toLowerCase() === tab);
-  const flaggedCount = items.filter(it => it.flag).length;
+  const rows = items.filter(it => tab === 'all' ? true : tab === 'flagged' ? (it.flagged !== undefined ? it.flagged : it.flag) : (it.source || '').toLowerCase() === tab);
+  const flaggedCount = items.filter(it => (it.flagged !== undefined ? it.flagged : it.flag)).length;
 
   return (
     <div className="screen">
@@ -73,25 +73,29 @@ export default function ItemAnalysisPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map(it => {
+            {rows.map((it, i) => {
+              const correctPct = (it.correct_pct !== undefined ? it.correct_pct : it.correctPct) || 0;
+              const isFlagged = it.flagged !== undefined ? it.flagged : it.flag;
+              const topDistractor = it.top_distractor || it.commonWrong;
+              
               let bg = '#F2EEE1';
-              if (it.correctPct > 0) {
-                bg = `hsl(156, ${it.correctPct * 100}%, ${100 - it.correctPct * 50}%)`;
+              if (correctPct > 0) {
+                bg = `hsl(156, ${correctPct}%, ${100 - (correctPct / 2)}%)`;
               }
               return (
-                <tr key={it.id} className={it.flag ? 'item-row-flag' : ''}>
+                <tr key={it.question_id || it.id || i} className={isFlagged ? 'item-row-flag' : ''}>
                   <td>{it.text}</td>
                   <td><span className="chip chip-ncert">{it.source}</span></td>
                   <td>
                     <div className="item-pct-cell">
                       <div className="dist-bar-track item-pct-track">
-                        <div className="dist-bar-fill" style={{ width: `${it.correctPct * 100}%`, background: bg }}></div>
+                        <div className="dist-bar-fill" style={{ width: `${correctPct}%`, background: bg }}></div>
                       </div>
-                      <span className="mono">{Math.round(it.correctPct * 100)}%</span>
+                      <span className="mono">{Math.round(correctPct)}%</span>
                     </div>
                   </td>
-                  <td className="muted small">{it.commonWrong}</td>
-                  <td>{it.flag && <span className="status-pill status-pending">Reteach</span>}</td>
+                  <td className="muted small">{topDistractor || '-'}</td>
+                  <td>{isFlagged && <span className="status-pill status-pending">Reteach</span>}</td>
                 </tr>
               );
             })}

@@ -25,6 +25,7 @@ import HeatmapPage from './pages/HeatmapPage';
 import ItemAnalysisPage from './pages/ItemAnalysisPage';
 import EscalationQueuePage from './pages/EscalationQueuePage';
 import RosterPage from './pages/RosterPage';
+import TeacherMessagesPage from './pages/TeacherMessagesPage';
 import ParentOverview from './pages/ParentOverview';
 import ParentDigestPage from './pages/ParentDigestPage';
 import ParentAlertsPage from './pages/ParentAlertsPage';
@@ -81,6 +82,7 @@ export default function App() {
               <Route path="item-analysis" element={<ItemAnalysisPage />} />
               <Route path="escalations" element={<EscalationQueuePage />} />
               <Route path="roster" element={<RosterPage />} />
+              <Route path="messages" element={<TeacherMessagesPage />} />
             </Route>
 
             {/* Parent Routes */}

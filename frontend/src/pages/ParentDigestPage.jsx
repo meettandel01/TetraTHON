@@ -33,11 +33,11 @@ export default function ParentDigestPage() {
   }
 
   return (
-    <div className="max-w-[800px] mx-auto animate-fade-in">
-      <div className="flex flex-col md:flex-row justify-between items-end mb-6 gap-4">
+    <div className="screen">
+      <div className="page-head">
         <div>
           <div className="eyebrow">Parent Portal</div>
-          <h1 className="text-3xl font-serif text-[var(--ink)] tracking-tight">Weekly Digest</h1>
+          <h1>Weekly Digest</h1>
         </div>
       </div>
 
@@ -52,37 +52,37 @@ export default function ParentDigestPage() {
         }} 
       />
 
-      <div className="card mb-8">
-        <h3 className="text-xl font-serif font-bold mb-6 flex items-center gap-2">
-          <Sparkles size={20} className="text-[var(--marigold-dark)]" /> {data.week || 'Current Week'}
+      <div className="card" style={{ marginBottom: '24px' }}>
+        <h3 style={{ fontSize: '20px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Sparkles size={20} color="var(--marigold-dark)" /> {data.week || 'Current Week'}
         </h3>
         
-        <div className="space-y-6 mb-8">
-          <div>
-            <h4 className="text-sm font-bold uppercase tracking-wider text-[var(--ink-soft)] mb-3">Highlights</h4>
+        <div style={{ marginBottom: '32px' }}>
+          <h4 className="eyebrow" style={{ marginBottom: '12px' }}>Highlights</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {data.highlights?.map((h, idx) => (
-              <div key={idx} className="flex items-start gap-3 bg-[#F9F8F5] p-3 rounded-[var(--radius-sm)] border border-[var(--border)] mb-2">
-                <div className="w-6 h-6 rounded-full bg-[var(--forest-soft)] text-[var(--forest)] flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">✓</div>
-                <p className="text-[14px] font-medium text-[var(--ink)]">{h}</p>
+              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', background: '#F9F8F5', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--forest-soft)', color: 'var(--forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontSize: '12px', fontWeight: 700 }}>✓</div>
+                <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: 'var(--ink)' }}>{h}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="bg-[var(--marigold-soft)] p-5 rounded-[var(--radius-md)] border border-[#d6af7a]">
-          <h4 className="text-[11.5px] font-bold uppercase tracking-wider text-[#8C5C13] mb-2 flex items-center gap-2">
+        <div style={{ background: 'var(--marigold-soft)', padding: '20px', borderRadius: '12px', border: '1px solid #d6af7a' }}>
+          <h4 className="eyebrow" style={{ color: '#8C5C13', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <BookOpen size={14} /> AI Recommendation for Home
           </h4>
-          <p className="text-[14px] font-medium text-[#5a3a0b] leading-relaxed">
+          <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#5a3a0b', lineHeight: 1.6 }}>
             {data.recommendation}
           </p>
         </div>
       </div>
       
-      <div className="card bg-[#F9F8F5] border-[var(--border)] text-center py-8">
-        <MessageSquare size={32} className="text-[var(--sky)] mx-auto mb-4" />
-        <h3 className="text-xl mb-2">Have questions about this digest?</h3>
-        <p className="text-sm text-[var(--ink-soft)] mb-6">Send a direct message to {data.teacher_name || 'the subject teacher'}.</p>
+      <div className="card center" style={{ background: '#F9F8F5', padding: '32px' }}>
+        <MessageSquare size={32} color="var(--sky)" style={{ margin: '0 auto 16px' }} />
+        <h3 style={{ fontSize: '20px', marginBottom: '8px' }}>Have questions about this digest?</h3>
+        <p className="muted" style={{ fontSize: '14px', marginBottom: '24px' }}>Send a direct message to {data.teacher_name || 'the subject teacher'}.</p>
         <button onClick={async () => {
           const msg = window.prompt("Enter your message to the teacher:");
           if (msg) {
@@ -93,7 +93,7 @@ export default function ParentDigestPage() {
               toast.success('Message sent to teacher');
             }
           }
-        }} className="btn btn-primary px-8">Message Teacher</button>
+        }} className="btn btn-primary" style={{ padding: '12px 32px' }}>Message Teacher</button>
       </div>
     </div>
   );

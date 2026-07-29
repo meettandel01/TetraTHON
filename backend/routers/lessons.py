@@ -107,8 +107,14 @@ def start_lesson_session(req: SessionStartRequest, db: Session = Depends(get_db)
         raise HTTPException(404, "Student not found")
         
     cid = req.concept_id
-    if cid is None and req.lesson_id and str(req.lesson_id).isdigit():
-        cid = int(req.lesson_id)
+    if cid is None and req.lesson_id:
+        if str(req.lesson_id).isdigit():
+            cid = int(req.lesson_id)
+        elif str(req.lesson_id).startswith("lesson_c"):
+            concept_code = str(req.lesson_id).replace("lesson_", "")
+            c = db.query(Concept).filter(Concept.concept_code == concept_code).first()
+            if c:
+                cid = c.id
         
     concept = db.query(Concept).get(cid) if cid else None
     

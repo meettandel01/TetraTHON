@@ -28,11 +28,11 @@ export default function AdminCompliancePage() {
   }
 
   return (
-    <div className="max-w-[1000px] mx-auto animate-fade-in p-8">
-      <div className="mb-6 flex justify-between items-end">
+    <div className="screen">
+      <div className="page-head">
         <div>
           <div className="eyebrow">Admin Console</div>
-          <h1 className="text-3xl font-serif text-[var(--ink)] tracking-tight">Compliance & Privacy</h1>
+          <h1>Compliance & Privacy</h1>
         </div>
       </div>
 
@@ -46,26 +46,26 @@ export default function AdminCompliancePage() {
         }} 
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="md:col-span-2 card">
-          <h3 className="text-xl mb-6">Data Anonymization Engine</h3>
-          <div className="flex items-center gap-4 mb-6 p-4 bg-[var(--forest-soft)] border border-[var(--forest)] rounded-[var(--radius-sm)]">
-            <CheckCircle size={24} className="text-[var(--forest)] shrink-0" />
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '32px' }}>
+        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+          <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>Data Anonymization Engine</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px', padding: '16px', background: 'var(--forest-soft)', border: '1px solid var(--forest)', borderRadius: '8px' }}>
+            <CheckCircle size={24} color="var(--forest)" style={{ flex: 'none' }} />
             <div>
-              <div className="font-bold text-[var(--forest)] text-[15px]">Active & Running</div>
-              <div className="text-sm text-[var(--forest)] opacity-90">PII is successfully being stripped from all LLM inputs before processing.</div>
+              <div style={{ fontWeight: 700, color: 'var(--forest)', fontSize: '15px' }}>Active & Running</div>
+              <div style={{ fontSize: '14px', color: 'var(--forest)', opacity: 0.9 }}>PII is successfully being stripped from all LLM inputs before processing.</div>
             </div>
           </div>
           
-          <h4 className="font-bold mb-3 text-sm">Recent Audit Logs</h4>
-          <div className="space-y-3">
+          <h4 style={{ fontWeight: 700, marginBottom: '12px', fontSize: '14px' }}>Recent Audit Logs</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {data.audit_logs?.map((log, i) => (
-              <div key={i} className="flex justify-between items-center p-3 border border-[var(--border)] rounded-[var(--radius-sm)] bg-[#F9F8F5]">
-                <div className="flex items-center gap-3">
-                  <FileText size={16} className="text-[var(--ink-soft)]" />
-                  <span className="text-sm font-mono text-[var(--ink)]">{log.filename}</span>
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', border: '1px solid var(--border)', borderRadius: '8px', background: '#F9F8F5' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <FileText size={16} color="var(--ink-soft)" />
+                  <span style={{ fontSize: '14px', fontFamily: 'monospace', color: 'var(--ink)' }}>{log.filename}</span>
                 </div>
-                <button onClick={() => toast.success(`Downloading ${log.filename}...`)} className="text-[var(--sky)] font-bold text-xs flex items-center gap-1 hover:underline">
+                <button onClick={() => toast.success(`Downloading ${log.filename}...`)} style={{ background: 'none', border: 'none', color: 'var(--sky)', fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
                   <Download size={14} /> Download
                 </button>
               </div>
@@ -73,28 +73,28 @@ export default function AdminCompliancePage() {
           </div>
         </div>
 
-        <div className="card bg-[var(--ink)] text-white border-none flex flex-col">
-          <h3 className="text-white mb-6">Policy Status</h3>
-          <div className="space-y-4 flex-1">
-            <div className="flex justify-between items-center pb-4 border-b border-[#3E476B]">
-              <span className="text-[14px] text-[#A8A4C4]">FERPA Compliance</span>
-              <span className={`badge-medium text-white border-none ${data.status === 'Healthy' ? 'bg-[var(--forest)]' : 'bg-[var(--redpen)]'}`}>{data.status}</span>
+        <div className="card card-highlight" style={{ display: 'flex', flexDirection: 'column' }}>
+          <h3 style={{ fontSize: '20px', marginBottom: '24px', color: '#fff' }}>Policy Status</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>FERPA Compliance</span>
+              <span className="badge-neutral badge-sm" style={{ background: data.status === 'Healthy' ? 'var(--forest)' : 'var(--redpen)', color: '#fff', border: 'none' }}>{data.status}</span>
             </div>
-            <div className="flex justify-between items-center pb-4 border-b border-[#3E476B]">
-              <span className="text-[14px] text-[#A8A4C4]">COPPA Compliance</span>
-              <span className={`badge-medium text-white border-none ${data.coppa_status === 'Verified' ? 'bg-[var(--forest)]' : 'bg-[var(--marigold-dark)]'}`}>{data.coppa_status || 'Verified'}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>COPPA Compliance</span>
+              <span className="badge-neutral badge-sm" style={{ background: data.coppa_status === 'Verified' ? 'var(--forest)' : 'var(--marigold-dark)', color: '#fff', border: 'none' }}>{data.coppa_status || 'Verified'}</span>
             </div>
-            <div className="flex justify-between items-center pb-4 border-b border-[#3E476B]">
-              <span className="text-[14px] text-[#A8A4C4]">Data Retention</span>
-              <span className="font-bold text-[14px]">{data.data_retention_policy}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>Data Retention</span>
+              <span style={{ fontWeight: 700, fontSize: '14px' }}>{data.data_retention_policy}</span>
             </div>
-            <div className="flex justify-between items-center pb-4 border-b border-[#3E476B]">
-              <span className="text-[14px] text-[#A8A4C4]">Guardian Consents</span>
-              <span className="font-bold text-[14px]">{data.total_consents} / {data.total_students}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>Guardian Consents</span>
+              <span style={{ fontWeight: 700, fontSize: '14px' }}>{data.total_consents} / {data.total_students}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[14px] text-[#A8A4C4]">Open Violations</span>
-              <span className="badge-medium bg-[#3E476B] text-white border-none">{data.open_violations}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>Open Violations</span>
+              <span className="badge-neutral badge-sm" style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: 'none' }}>{data.open_violations}</span>
             </div>
           </div>
         </div>

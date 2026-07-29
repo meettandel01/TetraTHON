@@ -164,19 +164,32 @@ export default function DashboardPage() {
       {stats.sessions && stats.sessions.length > 0 && (
         <div className="card" style={{ marginTop: '30px' }}>
           <p className="eyebrow">Recent Activity</p>
-          <div className="space-y-4 mt-4">
+          <div className="activity-list" style={{ marginTop: '16px' }}>
             {stats.sessions.slice(0, 5).map(session => (
-              <div key={session.id} className="flex justify-between items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                <div>
-                  <h4 className="font-bold text-gray-800">{session.lesson_title || session.concept_name || 'Learning Session'}</h4>
-                  <p className="text-sm text-gray-500">
-                    {new Date(session.started_at).toLocaleDateString()} · {Math.round(session.time_spent_seconds / 60)} min
-                  </p>
+              <div key={session.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', background: 'var(--card)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h4 style={{ margin: 0, fontWeight: 700, fontSize: '15px' }}>{session.lesson_title || session.concept_name || 'Learning Session'}</h4>
+                    {session.level && (
+                      <span className="badge-grade badge-sm">Level {session.level}</span>
+                    )}
+                  </div>
+                  <div className="muted small" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <span>{new Date(session.started_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    <span>•</span>
+                    <span>{Math.round(session.time_spent_seconds / 60)} min</span>
+                    {session.score !== null && session.score !== undefined && (
+                      <>
+                        <span>•</span>
+                        <span style={{ color: 'var(--marigold-dark)', fontWeight: 700 }}>Score: {Math.round(session.score)}%</span>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   {session.completed ? (
                     <>
-                      <span className="text-sm font-semibold text-green-600 bg-green-50 px-2 py-1 rounded">Completed</span>
+                      <span className="badge-advanced badge-sm">Completed</span>
                       <button 
                         className="btn btn-ghost btn-sm" 
                         onClick={() => navigate('/student/learning-path')}
@@ -186,7 +199,7 @@ export default function DashboardPage() {
                     </>
                   ) : (
                     <>
-                      <span className="text-sm font-semibold text-yellow-600 bg-yellow-50 px-2 py-1 rounded">In Progress</span>
+                      <span className="badge-foundational badge-sm">In Progress</span>
                       <button 
                         className="btn btn-primary btn-sm" 
                         onClick={() => navigate('/student/lesson', { state: { conceptId: session.concept_id } })}

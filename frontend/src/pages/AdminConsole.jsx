@@ -53,15 +53,15 @@ export default function AdminConsole() {
   }
 
   return (
-    <div className="max-w-[1000px] mx-auto animate-fade-in p-8">
-      <div className="mb-8 border-b border-[var(--border)] pb-6 flex justify-between items-end">
+    <div className="screen">
+      <div className="page-head">
         <div>
-          <div className="text-xs font-bold uppercase tracking-wider text-[var(--ink-soft)] mb-2">Admin Console</div>
-          <h1 className="text-3xl font-serif text-[var(--ink)] tracking-tight">System Status</h1>
+          <div className="eyebrow">Admin Console</div>
+          <h1>System Status</h1>
         </div>
-        <label className="flex items-center gap-2 bg-[var(--ink)] text-[var(--paper)] px-4 py-2 rounded-full font-bold text-sm hover:bg-[#2B3350] cursor-pointer">
+        <label className="btn btn-primary" style={{ cursor: 'pointer' }}>
           <Upload size={16} /> Import New Content
-          <input type="file" className="hidden" onChange={handleImport} />
+          <input type="file" style={{ display: 'none' }} onChange={handleImport} />
         </label>
       </div>
 
@@ -75,62 +75,62 @@ export default function AdminConsole() {
         }} 
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-[var(--card)] border border-[var(--border)] shadow-[var(--shadow-sm)] rounded-[var(--r-lg)] p-6 text-center">
-          <Shield size={24} className="mx-auto text-[#0A6B44] mb-2" />
-          <div className="font-bold text-[#0A6B44] text-lg mb-1">{compliance.status}</div>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">API Status</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '32px' }}>
+        <div className="card center" style={{ padding: '24px', textAlign: 'center' }}>
+          <Shield size={24} color="var(--forest)" style={{ margin: '0 auto 8px' }} />
+          <div style={{ fontWeight: 700, color: 'var(--forest)', fontSize: '18px', marginBottom: '4px' }}>{compliance.status}</div>
+          <div className="eyebrow">API Status</div>
         </div>
-        <div className="bg-[var(--card)] border border-[var(--border)] shadow-[var(--shadow-sm)] rounded-[var(--r-lg)] p-6 text-center">
-          <Database size={24} className="mx-auto text-[#2947C4] mb-2" />
-          <div className="font-bold text-[#2947C4] text-lg mb-1">{stats.total_questions} Items</div>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">Database Indexed</div>
+        <div className="card center" style={{ padding: '24px', textAlign: 'center' }}>
+          <Database size={24} color="var(--sky)" style={{ margin: '0 auto 8px' }} />
+          <div style={{ fontWeight: 700, color: 'var(--sky)', fontSize: '18px', marginBottom: '4px' }}>{stats.total_questions} Items</div>
+          <div className="eyebrow">Database Indexed</div>
         </div>
-        <div className="bg-[var(--card)] border border-[var(--border)] shadow-[var(--shadow-sm)] rounded-[var(--r-lg)] p-6 text-center">
-          <Server size={24} className="mx-auto text-[#8C5C13] mb-2" />
-          <div className="font-bold text-[#8C5C13] text-lg mb-1" title={stats.uptime ? '' : 'Monitoring not configured'}>{stats.uptime || 'N/A'}</div>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">Uptime</div>
+        <div className="card center" style={{ padding: '24px', textAlign: 'center' }}>
+          <Server size={24} color="var(--marigold-dark)" style={{ margin: '0 auto 8px' }} />
+          <div style={{ fontWeight: 700, color: 'var(--marigold-dark)', fontSize: '18px', marginBottom: '4px' }} title={stats.uptime ? '' : 'Monitoring not configured'}>{stats.uptime || 'N/A'}</div>
+          <div className="eyebrow">Uptime</div>
         </div>
-        <div className="bg-[var(--card)] border border-[var(--border)] shadow-[var(--shadow-sm)] rounded-[var(--r-lg)] p-6 text-center">
-          <Settings size={24} className="mx-auto text-[var(--ink)] mb-2" />
-          <div className="font-bold text-[var(--ink)] text-lg mb-1">{compliance.anonymization_status}</div>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--ink-soft)]">Anonymization</div>
+        <div className="card center" style={{ padding: '24px', textAlign: 'center' }}>
+          <Settings size={24} color="var(--ink)" style={{ margin: '0 auto 8px' }} />
+          <div style={{ fontWeight: 700, color: 'var(--ink)', fontSize: '18px', marginBottom: '4px' }}>{compliance.anonymization_status}</div>
+          <div className="eyebrow">Anonymization</div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-[var(--card)] border border-[var(--border)] shadow-[var(--shadow-sm)] rounded-[var(--r-lg)] p-8">
-          <h3 className="text-xl font-serif font-bold mb-6">Compliance & Audit</h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
-              <span className="text-[var(--ink-soft)] font-medium">Data Retention Policy</span>
-              <span className="font-bold text-[var(--ink)]">{compliance.data_retention_policy}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        <div className="card">
+          <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>Compliance & Audit</h3>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+              <span className="muted" style={{ fontWeight: 500 }}>Data Retention Policy</span>
+              <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{compliance.data_retention_policy}</span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
-              <span className="text-[var(--ink-soft)] font-medium">Open Violations</span>
-              <span className="font-bold text-[var(--ink)]">{compliance.open_violations}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+              <span className="muted" style={{ fontWeight: 500 }}>Open Violations</span>
+              <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{compliance.open_violations}</span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
-              <span className="text-[var(--ink-soft)] font-medium">Last Audit Date</span>
-              <span className="font-bold text-[var(--ink)]">{new Date(compliance.last_audit).toLocaleDateString()}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
+              <span className="muted" style={{ fontWeight: 500 }}>Last Audit Date</span>
+              <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{new Date(compliance.last_audit).toLocaleDateString()}</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-[var(--card)] border border-[var(--border)] shadow-[var(--shadow-sm)] rounded-[var(--r-lg)] p-8">
-          <h3 className="text-xl font-serif font-bold mb-6">Content Repository</h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
-              <span className="text-[var(--ink-soft)] font-medium">Total Concepts</span>
-              <span className="font-bold text-[var(--ink)]">{stats.total_concepts}</span>
+        <div className="card">
+          <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>Content Repository</h3>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+              <span className="muted" style={{ fontWeight: 500 }}>Total Concepts</span>
+              <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{stats.total_concepts}</span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
-              <span className="text-[var(--ink-soft)] font-medium">Total Questions</span>
-              <span className="font-bold text-[var(--ink)]">{stats.total_questions}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+              <span className="muted" style={{ fontWeight: 500 }}>Total Questions</span>
+              <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{stats.total_questions}</span>
             </div>
-            <div className="flex justify-between items-center py-2 border-b border-[var(--border)]">
-              <span className="text-[var(--ink-soft)] font-medium">Items Needing Review</span>
-              <span className="font-bold text-[var(--redpen)]">{stats.needs_review}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
+              <span className="muted" style={{ fontWeight: 500 }}>Items Needing Review</span>
+              <span style={{ fontWeight: 700, color: 'var(--redpen)' }}>{stats.needs_review}</span>
             </div>
           </div>
         </div>

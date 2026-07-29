@@ -14,15 +14,20 @@ export default function ProgressPage() {
   const [graphData, setGraphData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [syllabusTree, setSyllabusTree] = useState([]);
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [selectedChapter, setSelectedChapter] = useState(null);
+
   useEffect(() => {
     if (!user?.student_id) return;
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [statsRes, badgesRes, dashRes] = await Promise.all([
+        const [statsRes, badgesRes, dashRes, treeRes] = await Promise.all([
           api.get(`/gamification/${user.student_id}`),
           api.get(`/gamification/badges/${user.student_id}`),
-          dashboardApi.get(user.student_id)
+          dashboardApi.get(user.student_id),
+          api.get('/concepts/tree')
         ]);
 
         setStats({
@@ -41,6 +46,15 @@ export default function ProgressPage() {
         }
         setMasteryMap(mMap);
         setGraphData(dashRes.data?.concept_graph || null);
+
+        setSyllabusTree(treeRes.data || []);
+        if (treeRes.data.length > 0 && treeRes.data[0].children?.length > 0) {
+          const subject = treeRes.data[0].children[0];
+          setSelectedSubject(subject);
+          if (subject.children?.length > 0) {
+            setSelectedChapter(subject.children[0]);
+          }
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -52,6 +66,23 @@ export default function ProgressPage() {
 
   if (loading || !stats) {
     return <div className="screen"><div className="center-card" style={{padding: '40px'}}><div className="spinner"></div></div></div>;
+  }
+
+  const subjects = syllabusTree.length > 0 ? syllabusTree[0].children : [];
+  const chapters = selectedSubject ? selectedSubject.children : [];
+
+  let filteredGraphData = null;
+  if (graphData && selectedSubject) {
+    let validNodeIds = new Set();
+    if (selectedChapter) {
+      validNodeIds = new Set(selectedChapter.children.map(t => t.id));
+    } else {
+      validNodeIds = new Set(selectedSubject.children.flatMap(ch => ch.children.map(t => t.id)));
+    }
+    filteredGraphData = {
+      nodes: graphData.nodes.filter(n => validNodeIds.has(n.id)),
+      edges: graphData.edges.filter(e => validNodeIds.has(e.source) && validNodeIds.has(e.target))
+    };
   }
 
   return (
@@ -115,9 +146,43 @@ export default function ProgressPage() {
       </div>
 
       <div className="card">
-        <p className="eyebrow">Concept Mastery Map (Ch 2)</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <p className="eyebrow" style={{ margin: 0 }}>Concept Mastery Map</p>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <select 
+              className="field-select" 
+              style={{ marginBottom: 0, padding: '4px 8px', fontSize: '13px', width: 'auto' }}
+              value={selectedSubject?.id || ''}
+              onChange={e => {
+                const sub = subjects.find(s => s.id === parseInt(e.target.value));
+                setSelectedSubject(sub);
+                setSelectedChapter(null);
+              }}
+            >
+              {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            {selectedSubject && (
+              <select 
+                className="field-select" 
+                style={{ marginBottom: 0, padding: '4px 8px', fontSize: '13px', width: 'auto' }}
+                value={selectedChapter?.id || ''}
+                onChange={e => {
+                  if (e.target.value === 'all') setSelectedChapter(null);
+                  else setSelectedChapter(chapters.find(c => c.id === parseInt(e.target.value)));
+                }}
+              >
+                <option value="all">All Chapters</option>
+                {chapters.map(c => <option key={c.id} value={c.id}>Ch {c.chapter_number}: {c.name}</option>)}
+              </select>
+            )}
+          </div>
+        </div>
         <div style={{ margin: '0 -24px' }}>
-          <ConceptGraph data={graphData} masteryMap={masteryMap} />
+          {filteredGraphData?.nodes?.length > 0 ? (
+            <ConceptGraph data={filteredGraphData} masteryMap={masteryMap} />
+          ) : (
+            <div className="center" style={{ padding: '40px', color: 'var(--ink-soft)' }}>No topics mapped for this selection.</div>
+          )}
         </div>
       </div>
     </div>

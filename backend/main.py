@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from database import engine, Base, SessionLocal
-from routers import students, quiz, lessons, doubts, dashboard, concepts, auth, gamification, report_card, teacher, parent, admin, escalations
+from routers import students, quiz, lessons, doubts, dashboard, concepts, auth, gamification, report_card, teacher, parent, admin, escalations, notifications
 
 # Configure logging
 logging.basicConfig(
@@ -61,6 +61,7 @@ app.include_router(teacher.router, prefix="/api/teacher", tags=["Teacher Dashboa
 app.include_router(parent.router, prefix="/api/parent", tags=["Parent Portal"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(escalations.router, prefix="/api/escalations", tags=["Escalations"])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
 
 
 @app.get("/")

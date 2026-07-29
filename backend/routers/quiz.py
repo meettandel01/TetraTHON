@@ -43,18 +43,31 @@ def get_question_by_concept_difficulty(db: Session, concept_id: int, difficulty:
         q = db.query(ContentItem).filter(
             ContentItem.concept_id == concept_id
         ).all()
-        
-    # 4. Ultimate fallback: if concept is totally empty, pick ANY question in the database
+
+    # 4. Fallback to questions from the SAME chapter if concept has no questions
     if not q:
-        q = db.query(ContentItem).all()
-    
+        concept = db.query(Concept).filter(Concept.id == concept_id).first()
+        if concept and concept.chapter_id:
+            sibling_concept_ids = [c.id for c in db.query(Concept).filter(Concept.chapter_id == concept.chapter_id).all()]
+            q = db.query(ContentItem).filter(ContentItem.concept_id.in_(sibling_concept_ids)).all()
+            
+    # 5. Fallback to questions from the SAME subject if chapter has no questions
+    if not q:
+        concept = db.query(Concept).filter(Concept.id == concept_id).first()
+        if concept and concept.chapter_id:
+            from database import Chapter
+            chapter = db.query(Chapter).filter(Chapter.id == concept.chapter_id).first()
+            if chapter and chapter.subject_id:
+                subject_chapter_ids = [ch.id for ch in db.query(Chapter).filter(Chapter.subject_id == chapter.subject_id).all()]
+                subject_concept_ids = [c.id for c in db.query(Concept).filter(Concept.chapter_id.in_(subject_chapter_ids)).all()]
+                q = db.query(ContentItem).filter(ContentItem.concept_id.in_(subject_concept_ids)).all()
+        
     available = [item for item in q if str(item.id) not in exclude_ids]
+    
+    # If still no questions available within the scoped subject/chapter/topic, return None
+    # We NO LONGER fall back to ANY question in the database.
     if not available:
-        # If all questions in this set were excluded, try any question in the whole DB that hasn't been shown
-        all_q = db.query(ContentItem).all()
-        available = [item for item in all_q if str(item.id) not in exclude_ids]
-        if not available:
-            return None
+        return None
     
     choice = random.choice(available)
     concept_obj = db.query(Concept).get(choice.concept_id)

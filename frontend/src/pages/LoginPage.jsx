@@ -98,28 +98,57 @@ export default function LoginPage() {
     </div>
   );
 
+  const handleSsoLogin = async (role, provider) => {
+    setLoading(true);
+    try {
+      const res = await authApi.loginSso(role, provider);
+      login(res.data.access_token, res.data.user);
+      navigate(`/${res.data.user.role}/dashboard`);
+      toast.success(`Welcome back, ${res.data.user.name.split(' ')[0]}! 👋`);
+    } catch (e) {
+      toast.error(e.message || 'SSO Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpLogin = async () => {
+    setLoading(true);
+    try {
+      // Use 1 as parent_id and '1234' as dummy OTP for the demo
+      const res = await authApi.loginOtp(1, '1234');
+      login(res.data.access_token, res.data.user);
+      navigate('/parent/overview');
+      toast.success(`Welcome back, ${res.data.user.name.split(' ')[0]}! 👋`);
+    } catch (e) {
+      toast.error(e.message || 'OTP Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderLogin = () => (
     <div className={`login-card ${shake ? 'shake' : ''}`}>
       <h2 className="login-title">Sign In</h2>
-      <form onSubmit={handleLoginSubmit} style={{ width: '100%', marginTop: '1rem' }}>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Email or ID</label>
+      <p className="login-sub">Welcome back! Please enter your details.</p>
+      
+      <form onSubmit={handleLoginSubmit} style={{ width: '100%' }}>
+        <div>
+          <label className="field-label">Email or ID</label>
           <input 
             type="text"
-            className="input-field"
-            style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: '#fff', color: '#000' }}
+            className="field-input"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email"
             required
           />
         </div>
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>PIN</label>
+        <div style={{ marginBottom: '20px' }}>
+          <label className="field-label">PIN</label>
           <input 
             type="password"
-            className="input-field"
-            style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: '#fff', color: '#000' }}
+            className="field-input"
             value={pin}
             onChange={(e) => setPin(e.target.value)}
             placeholder="4-6 digit PIN"
@@ -127,12 +156,27 @@ export default function LoginPage() {
             required
           />
         </div>
-        <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '0.75rem' }} disabled={loading}>
+        <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
           {loading ? 'Authenticating...' : 'Sign In'}
         </button>
       </form>
-      <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-        <button className="btn btn-ghost" onClick={() => setMode('register')}>
+      
+      <div className="login-divider">or continue with</div>
+      
+      <div className="sso-row">
+        <button type="button" className="btn btn-ghost sso-btn" onClick={() => handleSsoLogin('teacher', 'google')}>
+          <Shield className="sso-icon" style={{ color: 'var(--sky)' }} /> Teacher Demo
+        </button>
+        <button type="button" className="btn btn-ghost sso-btn" onClick={() => handleSsoLogin('admin', 'microsoft')}>
+          <Shield className="sso-icon" style={{ color: 'var(--marigold-dark)' }} /> Admin Demo
+        </button>
+        <button type="button" className="btn btn-ghost sso-btn" onClick={handleOtpLogin} style={{ flex: '1 1 100%' }}>
+          <Mail className="sso-icon" style={{ color: 'var(--forest)' }} /> Parent Demo
+        </button>
+      </div>
+
+      <div style={{ marginTop: '16px', textAlign: 'center' }}>
+        <button className="btn btn-ghost btn-block" onClick={() => setMode('register')}>
           Don't have an account? Register
         </button>
       </div>
@@ -142,31 +186,33 @@ export default function LoginPage() {
   const renderRegister = () => (
     <div className="login-card">
       <h2 className="login-title">Register</h2>
-      <form onSubmit={handleRegisterSubmit} style={{ width: '100%', marginTop: '1rem' }}>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Full Name</label>
+      <p className="login-sub">Create your account to get started.</p>
+      
+      <form onSubmit={handleRegisterSubmit} style={{ width: '100%' }}>
+        <div>
+          <label className="field-label">Full Name</label>
           <input 
             type="text"
-            style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: '#fff', color: '#000' }}
+            className="field-input"
             value={regName}
             onChange={(e) => setRegName(e.target.value)}
             required
           />
         </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Email</label>
+        <div>
+          <label className="field-label">Email</label>
           <input 
             type="email"
-            style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: '#fff', color: '#000' }}
+            className="field-input"
             value={regEmail}
             onChange={(e) => setRegEmail(e.target.value)}
             required
           />
         </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Role</label>
+        <div>
+          <label className="field-label">Role</label>
           <select 
-            style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: '#fff', color: '#000' }}
+            className="field-input"
             value={regRole}
             onChange={(e) => setRegRole(e.target.value)}
           >
@@ -175,11 +221,11 @@ export default function LoginPage() {
             <option value="parent">Parent</option>
           </select>
         </div>
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>PIN</label>
+        <div style={{ marginBottom: '20px' }}>
+          <label className="field-label">PIN</label>
           <input 
             type="password"
-            style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: '#fff', color: '#000' }}
+            className="field-input"
             value={regPin}
             onChange={(e) => setRegPin(e.target.value)}
             placeholder="4-6 digit PIN"
@@ -187,12 +233,12 @@ export default function LoginPage() {
             required
           />
         </div>
-        <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '0.75rem' }}>
-          Register
+        <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+          {loading ? 'Registering...' : 'Register'}
         </button>
       </form>
-      <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-        <button className="btn btn-ghost" onClick={() => setMode('login')}>
+      <div style={{ marginTop: '16px', textAlign: 'center' }}>
+        <button className="btn btn-ghost btn-block" onClick={() => setMode('login')}>
           Already have an account? Sign In
         </button>
       </div>

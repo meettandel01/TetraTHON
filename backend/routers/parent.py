@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db, Student, Session as LearningSession, Doubt, Escalation, ParentSettings, Parent, StudentConceptMastery, Concept
+from database import get_db, Student, Session as LearningSession, Doubt, Escalation, ParentSettings, Parent, StudentConceptMastery, Concept, ParentMessage, Teacher
 from auth import get_current_user, require_role, User as AuthUser
 from datetime import datetime, timedelta
 from pydantic import BaseModel
@@ -25,7 +25,7 @@ def get_overview(child_id: int, db: Session = Depends(get_db), current_user: Aut
     
     teacher_name = "Mathematics Teacher"
     if student.section:
-        from database import Teacher, User as DBUser
+        from database import User as DBUser
         teachers = db.query(Teacher, DBUser).join(DBUser, Teacher.user_id == DBUser.id).all()
         for t, u in teachers:
             if t.sections and student.section in t.sections:
@@ -52,7 +52,7 @@ def get_digest(child_id: int, db: Session = Depends(get_db), current_user: AuthU
     
     teacher_name = "Mathematics Teacher"
     if student and student.section:
-        from database import Teacher, User as DBUser
+        from database import User as DBUser
         teachers = db.query(Teacher, DBUser).join(DBUser, Teacher.user_id == DBUser.id).all()
         for t, u in teachers:
             if t.sections and student.section in t.sections:
@@ -160,3 +160,32 @@ def update_settings(child_id: int, request: SettingsRequest, db: Session = Depen
     
     db.commit()
     return {"message": "Settings updated"}
+
+class MessageRequest(BaseModel):
+    message: str
+
+@router.post("/message/{child_id}")
+def message_teacher(child_id: int, request: MessageRequest, db: Session = Depends(get_db), current_user: AuthUser = Depends(require_role(["parent", "admin"]))):
+    parent = db.query(Parent).filter(Parent.child_id == child_id).first()
+    if not parent:
+        raise HTTPException(status_code=404, detail="Parent not found")
+        
+    student = db.query(Student).filter(Student.id == child_id).first()
+    target_teacher = None
+    if student and student.section:
+        teachers = db.query(Teacher).all()
+        for t in teachers:
+            if t.sections and student.section in t.sections:
+                target_teacher = t
+                break
+                
+    if not target_teacher:
+        target_teacher = db.query(Teacher).first()
+        
+    if target_teacher:
+        msg = ParentMessage(parent_id=parent.id, teacher_id=target_teacher.id, content=request.message)
+        db.add(msg)
+        db.commit()
+        
+    print(f"Parent {parent.id} sent message regarding child {child_id}: {request.message}")
+    return {"message": "Message sent"}

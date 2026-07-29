@@ -47,11 +47,11 @@ export default function ParentSettingsPage() {
   }
 
   return (
-    <div className="max-w-[800px] mx-auto animate-fade-in">
-      <div className="flex flex-col md:flex-row justify-between items-end mb-6 gap-4">
+    <div className="screen">
+      <div className="page-head">
         <div>
           <div className="eyebrow">Parent Portal</div>
-          <h1 className="text-3xl font-serif text-[var(--ink)] tracking-tight">Settings</h1>
+          <h1>Settings</h1>
         </div>
       </div>
 
@@ -66,56 +66,60 @@ export default function ParentSettingsPage() {
         }} 
       />
 
-      <div className="card mb-6">
-        <h3 className="text-xl mb-6">Notification Preferences</h3>
+      <div className="card" style={{ marginBottom: '24px' }}>
+        <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>Notification Preferences</h3>
         
-        <div className="space-y-6">
-          <div className="flex items-center justify-between pb-6 border-b border-[var(--border)]">
-            <div className="flex items-start gap-4">
-              <Mail className="text-[var(--ink-soft)] mt-1" size={20} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '24px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+              <Mail color="var(--ink-soft)" size={20} style={{ marginTop: '2px' }} />
               <div>
-                <div className="font-bold text-[var(--ink)] text-[15px]">Email Digest</div>
-                <div className="text-[13px] text-[var(--ink-soft)]">Receive the weekly AI digest via email</div>
+                <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--ink)' }}>Email Digest</div>
+                <div className="muted small">Receive the weekly AI digest via email</div>
               </div>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" className="sr-only peer" checked={settings.email_alerts} onChange={(e) => setSettings({...settings, email_alerts: e.target.checked})} />
-              <div className="w-11 h-6 bg-[var(--border)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--forest)]"></div>
+            <label style={{ position: 'relative', display: 'inline-flex', items: 'center', cursor: 'pointer' }}>
+              <input type="checkbox" style={{ opacity: 0, position: 'absolute' }} checked={settings.email_alerts} onChange={(e) => setSettings({...settings, email_alerts: e.target.checked})} />
+              <div style={{ width: '44px', height: '24px', background: settings.email_alerts ? 'var(--forest)' : 'var(--border)', borderRadius: '999px', position: 'relative', transition: '0.2s' }}>
+                <div style={{ position: 'absolute', top: '2px', left: settings.email_alerts ? '22px' : '2px', width: '20px', height: '20px', background: '#fff', borderRadius: '50%', transition: '0.2s' }}></div>
+              </div>
             </label>
           </div>
           
-          <div className="flex items-center justify-between pb-6 border-b border-[var(--border)]">
-            <div className="flex items-start gap-4">
-              <Smartphone className="text-[var(--ink-soft)] mt-1" size={20} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '24px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+              <Smartphone color="var(--ink-soft)" size={20} style={{ marginTop: '2px' }} />
               <div>
-                <div className="font-bold text-[var(--ink)] text-[15px]">SMS Alerts</div>
-                <div className="text-[13px] text-[var(--ink-soft)]">Get text messages for immediate escalations</div>
+                <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--ink)' }}>SMS Alerts</div>
+                <div className="muted small">Get text messages for immediate escalations</div>
               </div>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" className="sr-only peer" checked={settings.whatsapp_digest} onChange={(e) => setSettings({...settings, whatsapp_digest: e.target.checked})} />
-              <div className="w-11 h-6 bg-[var(--border)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--forest)]"></div>
+            <label style={{ position: 'relative', display: 'inline-flex', items: 'center', cursor: 'pointer' }}>
+              <input type="checkbox" style={{ opacity: 0, position: 'absolute' }} checked={settings.whatsapp_digest} onChange={(e) => setSettings({...settings, whatsapp_digest: e.target.checked})} />
+              <div style={{ width: '44px', height: '24px', background: settings.whatsapp_digest ? 'var(--forest)' : 'var(--border)', borderRadius: '999px', position: 'relative', transition: '0.2s' }}>
+                <div style={{ position: 'absolute', top: '2px', left: settings.whatsapp_digest ? '22px' : '2px', width: '20px', height: '20px', background: '#fff', borderRadius: '50%', transition: '0.2s' }}></div>
+              </div>
             </label>
           </div>
           
-          <div className="flex items-center justify-between">
-            <div className="flex items-start gap-4">
-              <Globe className="text-[var(--ink-soft)] mt-1" size={20} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+              <Globe color="var(--ink-soft)" size={20} style={{ marginTop: '2px' }} />
               <div>
-                <div className="font-bold text-[var(--ink)] text-[15px]">Language</div>
-                <div className="text-[13px] text-[var(--ink-soft)]">Preferred language for digests and alerts</div>
+                <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--ink)' }}>Language</div>
+                <div className="muted small">Preferred language for digests and alerts</div>
               </div>
             </div>
-            <select className="field-select w-auto min-w-[120px] mb-0 py-1.5 px-3" value={settings.digest_frequency} onChange={(e) => setSettings({...settings, digest_frequency: e.target.value})}>
-              <option value="weekly">Weekly</option>
-              <option value="daily">Daily</option>
+            <select style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--card)' }} value={settings.digest_frequency} onChange={(e) => setSettings({...settings, digest_frequency: e.target.value})}>
+              <option value="weekly">English</option>
+              <option value="daily">Hindi</option>
             </select>
           </div>
         </div>
       </div>
       
-      <div className="flex justify-end">
-        <button className="btn btn-primary px-8" onClick={handleSave}>Save Changes</button>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button className="btn btn-primary" style={{ padding: '12px 32px' }} onClick={handleSave}>Save Changes</button>
       </div>
     </div>
   );

@@ -61,6 +61,21 @@ def create_escalation(req: CreateEscalationRequest, db: Session = Depends(get_db
         status="pending"
     )
     db.add(esc)
+    
+    # Notify teachers of the student's section
+    from database import Teacher, Notification
+    teachers = db.query(Teacher).all() # Simple approach: notify all teachers or first teacher
+    if teachers:
+        # In a real app we filter by Teacher.sections containing student.section
+        teacher = teachers[0]
+        notif = Notification(
+            user_id=teacher.user_id,
+            title="Doubt Escalated",
+            message=f"Student has escalated a doubt: {req.doubt_text}",
+            type="escalation"
+        )
+        db.add(notif)
+        
     db.commit()
     db.refresh(esc)
     return {"id": esc.id, "message": "Escalation created successfully"}
@@ -95,11 +110,21 @@ def respond_escalation(escalation_id: int, data: ResponseModel, db: Session = De
     esc.status = "resolved"
     esc.response_text = data.response_text
     
-    from database import Doubt
+    from database import Doubt, Student, Notification
     doubt = db.query(Doubt).filter(Doubt.student_id == esc.student_id, Doubt.question_text == esc.doubt_text).first()
     if doubt:
         doubt.resolved = True
         doubt.response_text = "Teacher Response: " + data.response_text
+        
+    student = db.query(Student).filter(Student.id == esc.student_id).first()
+    if student:
+        notif = Notification(
+            user_id=student.user_id,
+            title="Escalation Resolved",
+            message="Your teacher has responded to your doubt.",
+            type="alert"
+        )
+        db.add(notif)
         
     db.commit()
     return {"message": "Escalation resolved successfully"}

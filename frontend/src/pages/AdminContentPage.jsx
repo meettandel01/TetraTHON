@@ -9,6 +9,8 @@ export default function AdminContentPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('Content Repo');
   const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterDiff, setFilterDiff] = useState('all');
   const [stats, setStats] = useState(null);
 
   const [contents, setContents] = useState([]);
@@ -111,20 +113,23 @@ export default function AdminContentPage() {
     }
   };
 
-  const filtered = contents.filter(c => 
-    (c.concept_name && c.concept_name.toLowerCase().includes(search.toLowerCase())) || 
-    (c.id && c.id.toString().includes(search))
-  );
+  const filtered = contents.filter(c => {
+    const matchesSearch = (c.concept_name && c.concept_name.toLowerCase().includes(search.toLowerCase())) || 
+                          (c.id && c.id.toString().includes(search));
+    const matchesType = filterType === 'all' || c.type === filterType;
+    const matchesDiff = filterDiff === 'all' || c.difficulty === filterDiff;
+    return matchesSearch && matchesType && matchesDiff;
+  });
 
   return (
-    <div className="max-w-[1000px] mx-auto animate-fade-in p-8 relative">
-      <div className="mb-6 flex justify-between items-end">
+    <div className="screen">
+      <div className="page-head">
         <div>
           <div className="eyebrow">Admin Console</div>
-          <h1 className="text-3xl font-serif text-[var(--ink)] tracking-tight">Content Repository</h1>
+          <h1>Content Repository</h1>
           {stats && (
-            <p className="text-[var(--ink-soft)] font-medium text-sm mt-2">
-              {stats.total_concepts} Concepts &middot; {stats.total_questions} Items &middot; Coverage: {stats.coverage} &middot; <span className="text-[var(--marigold-dark)]">{stats.needs_review} Needs Review</span>
+            <p className="page-sub" style={{ marginTop: '8px' }}>
+              <span style={{ fontWeight: 600 }}>{stats.total_concepts}</span> Concepts &middot; <span style={{ fontWeight: 600 }}>{stats.total_questions}</span> Items &middot; Coverage: {stats.coverage} &middot; <span style={{ color: 'var(--redpen)', fontWeight: 600 }}>{stats.needs_review} Needs Review</span>
             </p>
           )}
         </div>
@@ -141,80 +146,107 @@ export default function AdminContentPage() {
         }} 
       />
 
-      <div className="card p-0 overflow-hidden mb-8">
-        <div className="p-4 border-b border-[var(--border)] bg-[#F9F8F5] flex justify-between items-center">
-          <div className="relative w-[300px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-faint)]" size={16} />
+      <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: '20px' }}>
+        <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', background: 'var(--paper)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+          <div style={{ position: 'relative', flex: 1, maxWidth: '300px' }}>
+            <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-faint)' }} size={16} />
             <input 
               type="text" 
               placeholder="Search content ID or concept..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="field-input w-full pl-9 py-2 mb-0 text-sm"
+              className="field-input"
+              style={{ width: '100%', paddingLeft: '36px', paddingTop: '8px', paddingBottom: '8px', marginBottom: 0 }}
             />
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <select className="field-input" style={{ marginBottom: 0, padding: '8px 12px' }} value={filterType} onChange={e => setFilterType(e.target.value)}>
+              <option value="all">All Types</option>
+              <option value="mcq">MCQ</option>
+              <option value="numerical">Numerical</option>
+            </select>
+            <select className="field-input" style={{ marginBottom: 0, padding: '8px 12px' }} value={filterDiff} onChange={e => setFilterDiff(e.target.value)}>
+              <option value="all">All Difficulties</option>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
           </div>
         </div>
 
-        <table className="w-full text-left border-collapse">
+        <table className="roster-table">
           <thead>
-            <tr className="bg-white border-b border-[var(--border)] text-[11.5px] font-bold text-[var(--ink-soft)] uppercase tracking-wider">
-              <th className="p-4 pl-6">ID</th>
-              <th className="p-4">Type</th>
-              <th className="p-4">Concept Tag</th>
-              <th className="p-4">Status</th>
-              <th className="p-4">Difficulty</th>
-              <th className="p-4 text-right pr-6">Actions</th>
+            <tr>
+              <th style={{ paddingLeft: '24px' }}>ID</th>
+              <th>Type</th>
+              <th>Concept Tag</th>
+              <th>Status</th>
+              <th>Difficulty</th>
+              <th style={{ textAlign: 'right', paddingRight: '24px' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map(item => {
                const status = (!item.citation || item.citation === '') ? 'Needs Review' : 'Active';
                return (
-              <tr key={item.id} className="border-b border-[var(--border)] last:border-0 hover:bg-[#F9F8F5] transition-colors">
-                <td className="p-4 pl-6 font-mono text-sm">{item.id}</td>
-                <td className="p-4 text-[14px] text-[var(--ink-soft)]">{item.type}</td>
-                <td className="p-4 font-bold text-[14px]">{item.concept_name || 'Unknown'}</td>
-                <td className="p-4">
-                  <span className={`badge-medium ${status === 'Needs Review' ? 'bg-[var(--marigold-soft)] text-[var(--marigold-dark)] border border-[#d6af7a]' : 'bg-[var(--forest-soft)] text-[var(--forest)] border border-transparent'}`}>
+              <tr key={item.id}>
+                <td style={{ paddingLeft: '24px' }} className="mono">{item.id}</td>
+                <td>{item.type}</td>
+                <td style={{ fontWeight: 600 }}>{item.concept_name || 'Unknown'}</td>
+                <td>
+                  <span className={status === 'Needs Review' ? 'badge-foundational' : 'badge-advanced'}>
                     {status}
                   </span>
                 </td>
-                <td className="p-4 text-[13px] text-[var(--ink-soft)]">{item.difficulty}</td>
-                <td className="p-4 text-right pr-6 flex justify-end gap-2">
-                  <button onClick={() => handleOpenModal(item)} className="w-8 h-8 rounded-full bg-white border border-[var(--border)] flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--sky)] transition-colors shadow-sm"><Edit3 size={14} /></button>
-                  <button onClick={() => handleDelete(item.id)} className="w-8 h-8 rounded-full bg-white border border-[var(--border)] flex items-center justify-center text-[var(--ink-soft)] hover:text-[var(--redpen)] transition-colors shadow-sm"><Trash2 size={14} /></button>
+                <td className="muted">{item.difficulty}</td>
+                <td style={{ textAlign: 'right', paddingRight: '24px' }}>
+                  <button onClick={() => handleOpenModal(item)} className="icon-btn" style={{ marginRight: '8px' }}><Edit3 size={16} /></button>
+                  <button onClick={() => handleDelete(item.id)} className="icon-btn"><Trash2 size={16} color="var(--redpen)" /></button>
                 </td>
               </tr>
             )})}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--ink-soft)' }}>
+                  No content found matching "{search}"
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-[600px] max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-[var(--border)] flex justify-between items-center">
-              <h2 className="text-xl font-serif">{editingItem ? 'Edit Content' : 'Create Content'}</h2>
-              <button onClick={handleCloseModal} className="text-gray-500 hover:text-black"><X size={20} /></button>
+        <>
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000 }} onClick={handleCloseModal}></div>
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            backgroundColor: 'var(--card)', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+            width: '600px', maxWidth: '90vw', maxHeight: '90vh', overflowY: 'auto', zIndex: 1001,
+            display: 'flex', flexDirection: 'column'
+          }}>
+            <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>{editingItem ? 'Edit Content' : 'Create Content'}</h2>
+              <button onClick={handleCloseModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-soft)' }}><X size={20} /></button>
             </div>
-            <form onSubmit={handleSave} className="p-6 space-y-4">
+            <form onSubmit={handleSave} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
-                <label className="block text-sm font-bold mb-1">Concept</label>
-                <select className="field-input w-full" value={formData.concept_id} onChange={e => setFormData({...formData, concept_id: parseInt(e.target.value)})}>
+                <label className="field-label">Concept</label>
+                <select className="field-input" value={formData.concept_id} onChange={e => setFormData({...formData, concept_id: parseInt(e.target.value)})}>
                   {concepts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
-                  <label className="block text-sm font-bold mb-1">Type</label>
-                  <select className="field-input w-full" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
+                  <label className="field-label">Type</label>
+                  <select className="field-input" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
                     <option value="mcq">MCQ</option>
                     <option value="numerical">Numerical</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold mb-1">Difficulty</label>
-                  <select className="field-input w-full" value={formData.difficulty} onChange={e => setFormData({...formData, difficulty: e.target.value})}>
+                  <label className="field-label">Difficulty</label>
+                  <select className="field-input" value={formData.difficulty} onChange={e => setFormData({...formData, difficulty: e.target.value})}>
                     <option value="easy">Easy</option>
                     <option value="medium">Medium</option>
                     <option value="hard">Hard</option>
@@ -222,28 +254,28 @@ export default function AdminContentPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-bold mb-1">Question Text</label>
-                <textarea required className="field-input w-full min-h-[80px]" value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})}></textarea>
+                <label className="field-label">Question Text</label>
+                <textarea required className="field-input" style={{ minHeight: '80px', resize: 'vertical' }} value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})}></textarea>
               </div>
               <div>
-                <label className="block text-sm font-bold mb-1">Options (JSON for MCQ)</label>
-                <textarea className="field-input w-full font-mono text-sm min-h-[80px]" placeholder='{"A": "Option 1", "B": "Option 2"}' value={formData.options} onChange={e => setFormData({...formData, options: e.target.value})}></textarea>
+                <label className="field-label">Options (JSON for MCQ)</label>
+                <textarea className="field-input mono" style={{ minHeight: '80px', resize: 'vertical', fontSize: '13px' }} placeholder='{"A": "Option 1", "B": "Option 2"}' value={formData.options} onChange={e => setFormData({...formData, options: e.target.value})}></textarea>
               </div>
               <div>
-                <label className="block text-sm font-bold mb-1">Correct Answer (Key)</label>
-                <input required type="text" className="field-input w-full" placeholder="A" value={formData.correct} onChange={e => setFormData({...formData, correct: e.target.value})} />
+                <label className="field-label">Correct Answer (Key)</label>
+                <input required type="text" className="field-input" placeholder="A" value={formData.correct} onChange={e => setFormData({...formData, correct: e.target.value})} />
               </div>
               <div>
-                <label className="block text-sm font-bold mb-1">Explanation</label>
-                <textarea className="field-input w-full min-h-[80px]" value={formData.explanation} onChange={e => setFormData({...formData, explanation: e.target.value})}></textarea>
+                <label className="field-label">Explanation</label>
+                <textarea className="field-input" style={{ minHeight: '80px', resize: 'vertical' }} value={formData.explanation} onChange={e => setFormData({...formData, explanation: e.target.value})}></textarea>
               </div>
-              <div className="pt-4 flex justify-end gap-2">
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
                 <button type="button" onClick={handleCloseModal} className="btn btn-ghost">Cancel</button>
                 <button type="submit" className="btn btn-primary">{editingItem ? 'Save Changes' : 'Create'}</button>
               </div>
             </form>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

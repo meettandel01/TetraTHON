@@ -79,6 +79,18 @@ class Parent(Base):
     user = relationship("User")
     child = relationship("Student")
 
+class ParentMessage(Base):
+    __tablename__ = "parent_messages"
+    id = Column(Integer, primary_key=True, index=True)
+    parent_id = Column(Integer, ForeignKey("parents.id"), nullable=False)
+    teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    parent = relationship("Parent")
+    teacher = relationship("Teacher")
+
 class Admin(Base):
     __tablename__ = "admins"
     
@@ -298,6 +310,19 @@ class GamificationSettings(Base):
     id = Column(Integer, primary_key=True, index=True)
     daily_xp_cap = Column(Integer, default=500)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String(100), nullable=False)
+    message = Column(Text, nullable=False)
+    type = Column(String(50), nullable=False) # assignment, alert, escalation, system
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    user = relationship("User")
 
 # Dependency for FastAPI routes
 def get_db():

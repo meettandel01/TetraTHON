@@ -102,6 +102,7 @@ export const teacherApi = {
   getRoster: (section) => api.get(`/teacher/roster${section ? `?section=${encodeURIComponent(section)}` : ''}`),
   getHeatmap: (section) => api.get(`/teacher/heatmap?section=${encodeURIComponent(section)}`),
   getItemAnalysis: () => api.get(`/teacher/item-analysis`),
+  getMessages: () => api.get(`/teacher/messages`),
   assignPractice: (studentId, concept) => api.post('/teacher/assign-practice', { student_id: studentId, concept }),
   sendMessage: (studentId, message) => api.post('/teacher/message', { student_id: studentId, message })
 }
@@ -127,6 +128,12 @@ export const adminApi = {
   updateContentItem: (id, data) => api.put(`/admin/content-items/${id}`, data),
   deleteContentItem: (id) => api.delete(`/admin/content-items/${id}`),
 }
+
+export const notificationsApi = {
+  getNotifications: () => api.get('/notifications'),
+  markAsRead: (id) => api.post(`/notifications/${id}/read`),
+  markAllAsRead: () => api.post('/notifications/read-all')
+};
 
 // ─── Escalations API ───────────────────────────────────────────────────────
 export const escalationsApi = {

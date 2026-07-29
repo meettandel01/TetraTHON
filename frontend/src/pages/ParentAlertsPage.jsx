@@ -30,11 +30,11 @@ export default function ParentAlertsPage() {
   };
 
   return (
-    <div className="max-w-[800px] mx-auto animate-fade-in">
-      <div className="flex flex-col md:flex-row justify-between items-end mb-6 gap-4">
+    <div className="screen">
+      <div className="page-head">
         <div>
           <div className="eyebrow">Parent Portal</div>
-          <h1 className="text-3xl font-serif text-[var(--ink)] tracking-tight">Alerts</h1>
+          <h1>Alerts</h1>
         </div>
       </div>
 
@@ -49,23 +49,23 @@ export default function ParentAlertsPage() {
         }} 
       />
 
-      <div className="card mb-8">
-        <h3 className="text-xl font-serif font-bold mb-6 flex items-center gap-2">
-          <Flag size={20} className="text-[var(--marigold-dark)]" /> Recent Alerts
+      <div className="card" style={{ marginBottom: '24px' }}>
+        <h3 style={{ fontSize: '20px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Flag size={20} color="var(--marigold-dark)" /> Recent Alerts
         </h3>
         
         {loading ? (
-          <div className="flex justify-center p-8"><div className="spinner"></div></div>
+          <div className="center" style={{ padding: '40px 0' }}><div className="spinner"></div></div>
         ) : alerts.length === 0 ? (
-          <p className="text-[var(--ink-soft)]">No new alerts.</p>
+          <p className="muted center" style={{ padding: '40px 0' }}>No new alerts.</p>
         ) : (
-          <div className="space-y-4">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {alerts.map(alert => (
-              <div key={alert.id} className="flex items-start gap-3 bg-[var(--redpen-soft)] border border-[var(--redpen)] p-4 rounded-[var(--radius-sm)]">
-                <AlertCircle size={20} className="text-[var(--redpen)] shrink-0 mt-0.5" />
+              <div key={alert.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', background: 'var(--redpen-soft)', border: '1px solid var(--redpen)', padding: '16px', borderRadius: '8px' }}>
+                <AlertCircle size={20} color="var(--redpen)" style={{ flex: 'none', marginTop: '2px' }} />
                 <div>
-                  <h4 className="text-[14px] font-bold text-[var(--redpen)] mb-1">{alert.message}</h4>
-                  <p className="text-[12px] text-[var(--ink-soft)]">{new Date(alert.date).toLocaleDateString()}</p>
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--redpen)', marginBottom: '4px' }}>{alert.message}</h4>
+                  <p className="muted small" style={{ margin: 0 }}>{new Date(alert.date).toLocaleDateString()}</p>
                 </div>
               </div>
             ))}

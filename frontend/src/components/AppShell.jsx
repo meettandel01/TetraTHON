@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../services/authApi';
+import { notificationsApi } from '../services/api';
 import {
   Home,
   Network,
@@ -17,7 +18,8 @@ import {
   ChevronDown,
   Bell,
   Menu,
-  X
+  X,
+  Mail
 } from 'lucide-react';
 
 const getNavItems = (role, unreadEscalations = 0) => {
@@ -28,6 +30,7 @@ const getNavItems = (role, unreadEscalations = 0) => {
       { id: 'item-analysis', path: '/teacher/item-analysis', label: 'Item Analysis', icon: Target },
       { id: 'escalations', path: '/teacher/escalations', label: 'Escalation Queue', icon: Flag, badge: unreadEscalations },
       { id: 'roster', path: '/teacher/roster', label: 'Student Roster', icon: Users },
+      { id: 'messages', path: '/teacher/messages', label: 'Parent Messages', icon: Mail },
     ];
   }
   if (role === 'admin') {
@@ -59,7 +62,44 @@ export default function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false); // keep minimal tailwind for mobile nav overlay if needed
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    if (user) {
+      loadNotifications();
+    }
+  }, [user, notificationsOpen]);
+
+  const loadNotifications = async () => {
+    try {
+      const res = await notificationsApi.getNotifications();
+      setNotifications(res.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleMarkAsRead = async (id) => {
+    try {
+      await notificationsApi.markAsRead(id);
+      loadNotifications();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationsApi.markAllAsRead();
+      loadNotifications();
+      setNotificationsOpen(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   if (!user) return null;
 
@@ -98,8 +138,38 @@ export default function AppShell() {
         </div>
         
         <div className="topbar-right">
-          <div className="bell-wrap hidden sm:block" style={{ display: 'block', marginRight: '10px' }}>
-            <Bell size={20} className="muted" />
+          <div className="bell-wrap hidden sm:block" style={{ display: 'block', marginRight: '10px', position: 'relative' }}>
+            <button 
+              onClick={() => setNotificationsOpen(!notificationsOpen)}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', position: 'relative', padding: '4px' }}
+            >
+              <Bell size={20} className="muted" />
+              {notifications.some(n => n.unread) && (
+                <div style={{ position: 'absolute', top: 0, right: 0, width: '8px', height: '8px', background: 'var(--redpen)', borderRadius: '50%' }}></div>
+              )}
+            </button>
+            {notificationsOpen && (
+              <>
+                <div style={{position: 'fixed', inset: 0, zIndex: 10}} onClick={() => setNotificationsOpen(false)}></div>
+                <div className="user-menu" style={{ width: '320px', right: '0', top: '45px', padding: '0', overflow: 'hidden' }}>
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600, fontSize: '14px' }}>Notifications</div>
+                  <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: '16px', textAlign: 'center', color: 'var(--ink-faint)', fontSize: '13px' }}>No notifications</div>
+                    ) : notifications.map(n => (
+                      <div key={n.id} onClick={() => handleMarkAsRead(n.id)} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: n.unread ? 'var(--bg-faint)' : 'transparent', display: 'flex', flexDirection: 'column', gap: '4px', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                          <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--ink)' }}>{n.title}</span>
+                          <span className="muted small" style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{new Date(n.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
+                        <span className="small muted" style={{ fontSize: '13px', lineHeight: '1.4' }}>{n.desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ padding: '10px', textAlign: 'center', fontSize: '13px', color: 'var(--brand)', cursor: 'pointer', background: 'var(--card)' }} onClick={handleMarkAllAsRead}>Mark all as read</div>
+                </div>
+              </>
+            )}
           </div>
 
           <button className="user-chip" onClick={() => setMenuOpen(!menuOpen)}>

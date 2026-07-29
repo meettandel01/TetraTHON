@@ -26,13 +26,23 @@ def get_dashboard(student_id: int, chapter_id: Optional[str] = None, db: Session
     sessions_list = []
     for s in sorted(sessions, key=lambda x: x.started_at, reverse=True)[:10]:
         concept_name = s.lesson_title
-        if s.concept_id:
-            c = db.query(Concept).filter(Concept.id == s.concept_id).first()
+        concept_id = s.concept_id
+        
+        # Recover concept from lesson_c1 if concept_id is missing
+        if not concept_id and s.lesson_id and s.lesson_id.startswith("lesson_c"):
+            concept_code = s.lesson_id.replace("lesson_", "")
+            c = db.query(Concept).filter(Concept.concept_code == concept_code).first()
+            if c:
+                concept_id = c.id
+        
+        if concept_id:
+            c = db.query(Concept).filter(Concept.id == concept_id).first()
             if c:
                 concept_name = c.name
+
         sessions_list.append({
             "id": s.id,
-            "concept_id": s.concept_id,
+            "concept_id": concept_id,
             "concept_name": concept_name,
             "level": s.level,
             "completed": s.completed,

@@ -1,11 +1,44 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import case, func
-from database import get_db, Student, User, Escalation, Session as LearningSession, StudentConceptMastery, Concept, QuizAttempt, Chapter
+from database import get_db, Student, User, Escalation, Session as LearningSession, StudentConceptMastery, Concept, QuizAttempt, Chapter, ContentItem, ParentMessage, Parent, Teacher
 from auth import get_current_user, require_role, User as AuthUser
 from datetime import datetime, date
 
 router = APIRouter()
+
+@router.get("/messages")
+def get_teacher_messages(db: Session = Depends(get_db), current_user: AuthUser = Depends(require_role(["teacher", "admin"]))):
+    teacher = db.query(Teacher).filter(Teacher.user_id == current_user.id).first()
+    if not teacher:
+        return []
+        
+    messages = db.query(ParentMessage).filter(ParentMessage.teacher_id == teacher.id).order_by(ParentMessage.created_at.desc()).all()
+    
+    res = []
+    for m in messages:
+        parent = db.query(Parent).filter(Parent.id == m.parent_id).first()
+        student_name = "Unknown"
+        parent_name = "Parent"
+        if parent:
+            parent_user = db.query(User).filter(User.id == parent.user_id).first()
+            if parent_user:
+                parent_name = parent_user.name
+            student = db.query(Student).filter(Student.id == parent.child_id).first()
+            if student:
+                student_user = db.query(User).filter(User.id == student.user_id).first()
+                if student_user:
+                    student_name = student_user.name
+                    
+        res.append({
+            "id": m.id,
+            "parent_name": parent_name,
+            "student_name": student_name,
+            "content": m.content,
+            "is_read": m.is_read,
+            "created_at": m.created_at.isoformat()
+        })
+    return res
 
 @router.get("/sections")
 def get_teacher_sections(db: Session = Depends(get_db), current_user: AuthUser = Depends(require_role(["teacher", "admin"]))):
@@ -126,14 +159,14 @@ def get_heatmap(section: str, db: Session = Depends(get_db), current_user: AuthU
         
     heatmap = []
     for s, name in students:
-        row = {"student_id": s.id, "student_name": name, "scores": {}}
+        row = {"id": s.id, "name": name, "scores": {}}
         for c in concepts:
             val = mastery_map.get(s.id, {}).get(c.id, -1)
-            row["scores"][c.short_name or c.name] = val
+            row["scores"][c.name] = val
         heatmap.append(row)
         
     return {
-        "concepts": [c.short_name or c.name for c in concepts],
+        "concepts": [c.name for c in concepts],
         "heatmap": heatmap
     }
 
@@ -146,6 +179,9 @@ def get_item_analysis(db: Session = Depends(get_db), current_user: AuthUser = De
         func.count(QuizAttempt.id).label("total_attempts"),
         func.sum(case((QuizAttempt.is_correct == True, 1), else_=0)).label("correct_count")
     ).group_by(QuizAttempt.question_id, QuizAttempt.question_text, QuizAttempt.concept_tag).all()
+    
+    content_items = db.query(ContentItem.id, ContentItem.usage_type).all()
+    source_map = {str(item.id): item.usage_type for item in content_items}
     
     analysis = []
     for r in results:
@@ -161,6 +197,7 @@ def get_item_analysis(db: Session = Depends(get_db), current_user: AuthUser = De
             "question_id": r.question_id,
             "text": r.question_text,
             "concept": r.concept_tag,
+            "source": source_map.get(r.question_id, "practice").capitalize(),
             "total_attempts": total,
             "correct_pct": round(correct_pct, 1),
             "flagged": correct_pct < 50,
@@ -187,3 +224,47 @@ def get_roster(section: str = None, db: Session = Depends(get_db), current_user:
             "streak": student.streak
         })
     return roster
+
+from pydantic import BaseModel
+class AssignPracticeRequest(BaseModel):
+    student_id: int
+    concept: str
+
+@router.post("/assign-practice")
+def assign_practice(req: AssignPracticeRequest, db: Session = Depends(get_db), current_user: AuthUser = Depends(require_role(["teacher"]))):
+    student = db.query(Student).filter(Student.id == req.student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+        
+    from database import Notification
+    # Create notification for student
+    notif = Notification(
+        user_id=student.user_id,
+        title="New Practice Assigned",
+        message=f"Your teacher assigned you practice on: {req.concept}",
+        type="assignment"
+    )
+    db.add(notif)
+    db.commit()
+    return {"status": "success", "message": "Practice assigned and student notified"}
+
+class SendMessageRequest(BaseModel):
+    student_id: int
+    message: str
+
+@router.post("/message")
+def send_message(req: SendMessageRequest, db: Session = Depends(get_db), current_user: AuthUser = Depends(require_role(["teacher"]))):
+    student = db.query(Student).filter(Student.id == req.student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+        
+    from database import Notification
+    notif = Notification(
+        user_id=student.user_id,
+        title="Message from Teacher",
+        message=req.message,
+        type="alert"
+    )
+    db.add(notif)
+    db.commit()
+    return {"status": "success", "message": "Message sent"}

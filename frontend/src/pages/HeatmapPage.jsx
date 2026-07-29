@@ -43,7 +43,7 @@ export default function HeatmapPage() {
     return <div className="screen"><div className="center-card" style={{padding: '40px'}}><div className="spinner"></div></div></div>;
   }
 
-  const { concepts, students } = data;
+  const { concepts, heatmap: students } = data;
   const totalPages = Math.max(1, Math.ceil(students.length / pageSize));
   const startIndex = (page - 1) * pageSize;
   const currentStudents = students.slice(startIndex, startIndex + pageSize);
@@ -90,22 +90,22 @@ export default function HeatmapPage() {
                   {concepts.map((concept, idx) => {
                     const score = student.scores[concept] || 0;
                     const isSelected = selectedCell?.sId === student.id && selectedCell?.cIdx === idx;
-                    
+                    const scorePct = score * 100;
                     let bg = '#F2EEE1';
                     let color = 'transparent';
-                    if (score > 0) {
-                      bg = `hsl(156, ${score}%, ${100 - score/2}%)`;
-                      color = `hsl(156, 100%, ${30 - score/4}%)`;
+                    if (scorePct > 0) {
+                      bg = `hsl(156, ${scorePct}%, ${100 - scorePct/2}%)`;
+                      color = `hsl(156, 100%, ${30 - scorePct/4}%)`;
                     }
 
                     return (
                       <td key={idx}>
                         <button 
-                          onClick={() => setSelectedCell({ sId: student.id, cIdx: idx, score, concept: concept })}
+                          onClick={() => setSelectedCell({ sId: student.id, cIdx: idx, score: scorePct, concept: concept })}
                           className={`heat-cell ${isSelected ? 'heat-cell-sel' : ''}`}
-                          style={{ background: bg, color: score > 0 ? color : 'var(--ink-faint)' }}
+                          style={{ background: bg, color: scorePct > 0 ? color : 'var(--ink-faint)' }}
                         >
-                          {Math.round(score) || '-'}
+                          {Math.round(scorePct) || '-'}
                         </button>
                       </td>
                     );
